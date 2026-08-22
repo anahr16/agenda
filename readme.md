@@ -7,8 +7,12 @@ fotógrafos, etc.).
 ## Stack
 
 - **Backend:** Node.js + Express + SQLite
-- **App:** Android nativa en Java, conectada al backend vía Retrofit
+- **Frontend:** Angular (web), consumiendo el backend por HTTP. Es la
+  versión de prueba mientras no hay un teléfono Android a mano; el plan es
+  migrar esta misma funcionalidad a una app Android nativa (Java +
+  Retrofit) más adelante.
 - **Notificaciones:** push antes de cada cita, vía Firebase Cloud Messaging
+  (al navegador con la web, a la app cuando exista)
 
 ## Alcance V1
 
@@ -26,7 +30,10 @@ fotógrafos, etc.).
 - [x] Login del dueño de la agenda
 - [x] Recordatorios automáticos (cron + Firebase Cloud Messaging) — falta configurar
       un proyecto real de Firebase; por ahora corren en modo simulado/logueado
-- [ ] App Android (Java + Retrofit)
+- [x] Frontend web en Angular (login, clientes, agenda día/semana, activar
+      push) — falta configurar Firebase para que las notificaciones lleguen
+      de verdad
+- [ ] App Android (Java + Retrofit) — migración futura de la web
 
 ## Backend (`backend/`)
 
@@ -51,6 +58,7 @@ la variable de entorno `PORT`, ej: `PORT=5000 npm run dev`.
 | `JWT_SECRET` | Clave para firmar los tokens de login. Se genera sola la primera vez. |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | Path al JSON de credenciales de la cuenta de servicio de Firebase (ver sección de recordatorios). Vacío = modo simulado. |
 | `RECORDATORIO_MINUTOS_ANTES` | Con cuántos minutos de anticipación se manda el recordatorio de una cita. Default `30`. |
+| `FRONTEND_URL` | Origen permitido por CORS para llamar a la API. Default `http://localhost:4200` (donde corre el frontend Angular en desarrollo). |
 
 ### Base de datos
 
@@ -119,3 +127,46 @@ Si el proyecto vive en `/mnt/c/...` (filesystem de Windows montado en WSL),
 los eventos de inotify. En ese caso hay que reiniciar el server a mano
 después de cada cambio (`Ctrl+C` y `npm run dev` de nuevo), o mover el
 proyecto a un path nativo de Linux (ej. `~/proyectos/...`).
+
+## Frontend (`frontend/`)
+
+Angular standalone (sin server-side rendering). Pantallas: login/registro
+del dueño, clientes (alta/edición/borrado) y agenda (vista día/semana,
+alta/edición/cancelación/borrado de citas, botón para activar los
+recordatorios push del navegador).
+
+### Cómo correrlo
+
+```
+cd frontend
+npm install
+npm start        # ng serve, http://localhost:4200
+```
+
+Necesita el backend corriendo en paralelo (`http://localhost:4000` por
+default). Al primer uso hay que crear el usuario dueño desde la pantalla de
+login ("No tengo cuenta todavía").
+
+### Configuración (`frontend/src/environments/environment.ts`)
+
+| Campo | Descripción |
+|-------|-------------|
+| `apiUrl` | URL del backend. Default `http://localhost:4000`. |
+| `firebase` | Config del proyecto Firebase (Configuración del proyecto → General → Tus apps → agregar app Web). Mientras quede vacío, el botón de recordatorios se oculta. |
+| `vapidKey` | Clave VAPID del proyecto (Configuración del proyecto → Cloud Messaging → Certificados push web). |
+
+**Importante:** `public/firebase-messaging-sw.js` (el service worker que
+recibe las notificaciones en segundo plano) necesita los mismos valores de
+`firebase` duplicados a mano ahí adentro — un service worker no puede
+importar `environment.ts`. Es el mismo proyecto de Firebase que ya se
+configuró para el backend (`FIREBASE_SERVICE_ACCOUNT_PATH`), solo que acá
+se usan las credenciales públicas de la app Web en vez de la cuenta de
+servicio.
+
+### Sobre la migración futura a Android
+
+Esta web es intencionalmente una capa fina sobre la misma API
+(`backend/`) que va a usar la futura app Android — mismos endpoints, mismo
+login, mismo formato de fechas. Migrar más adelante implica reimplementar
+estas mismas pantallas en Java + Retrofit; el backend no debería necesitar
+cambios.

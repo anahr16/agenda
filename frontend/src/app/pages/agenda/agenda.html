@@ -1,0 +1,87 @@
+<h1>Agenda</h1>
+
+<div class="controles">
+  <div class="tabs">
+    <button type="button" [class.activo]="vista() === 'dia'" (click)="vista.set('dia')">Dia</button>
+    <button type="button" [class.activo]="vista() === 'semana'" (click)="vista.set('semana')">Semana</button>
+  </div>
+
+  @if (vista() === 'dia') {
+    <div class="nav-dia">
+      <button type="button" class="secundario" (click)="cambiarDia(-1)">◀</button>
+      <input type="date" [ngModel]="fechaSeleccionada()" (ngModelChange)="fechaSeleccionada.set($event)" />
+      <button type="button" class="secundario" (click)="cambiarDia(1)">▶</button>
+    </div>
+  }
+</div>
+
+<form class="form-cita" (ngSubmit)="guardar()">
+  <select name="cliente" [(ngModel)]="clienteId" required>
+    <option value="" disabled>Cliente</option>
+    @for (cliente of clientes(); track cliente.id) {
+      <option [value]="cliente.id">{{ cliente.nombre }}</option>
+    }
+  </select>
+  <input type="date" name="fecha" [(ngModel)]="fecha" required />
+  <input type="time" name="horaInicio" [(ngModel)]="horaInicio" required />
+  <input type="time" name="horaFin" [(ngModel)]="horaFin" required />
+  <input type="text" name="notas" placeholder="Notas (opcional)" [(ngModel)]="notas" />
+  <button type="submit">{{ editandoId() ? 'Guardar cambios' : 'Agregar cita' }}</button>
+  @if (editandoId()) {
+    <button type="button" class="secundario" (click)="cancelarEdicion()">Cancelar</button>
+  }
+</form>
+
+@if (error()) {
+  <p class="mensaje">{{ error() }}</p>
+}
+
+@if (vista() === 'dia') {
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th>Hora</th>
+        <th>Cliente</th>
+        <th>Estado</th>
+        <th>Notas</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (cita of citasDelDia(); track cita.id) {
+        <tr [class.cancelada]="cita.estado === 'cancelada'">
+          <td>{{ hora(cita.inicio) }} - {{ hora(cita.fin) }}</td>
+          <td>{{ nombreCliente(cita.cliente_id) }}</td>
+          <td>{{ cita.estado }}</td>
+          <td>{{ cita.notas || '-' }}</td>
+          <td class="acciones">
+            <button type="button" class="secundario" (click)="editar(cita)">Editar</button>
+            @if (cita.estado !== 'cancelada') {
+              <button type="button" class="secundario" (click)="cancelarCita(cita)">Cancelar</button>
+            }
+            <button type="button" class="secundario" (click)="borrar(cita)">Borrar</button>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="5">No hay citas este dia.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+} @else {
+  <div class="semana">
+    @for (dia of diasDeLaSemana(); track dia.fecha) {
+      <div class="columna-dia">
+        <button type="button" class="encabezado-dia" (click)="irADia(dia.fecha)">{{ dia.etiqueta }}</button>
+        @for (cita of dia.citas; track cita.id) {
+          <button type="button" class="cita-mini" [class.cancelada]="cita.estado === 'cancelada'" (click)="irADia(dia.fecha)">
+            {{ hora(cita.inicio) }} {{ nombreCliente(cita.cliente_id) }}
+          </button>
+        } @empty {
+          <span class="sin-citas">-</span>
+        }
+      </div>
+    }
+  </div>
+}

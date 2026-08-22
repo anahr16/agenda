@@ -1,0 +1,94 @@
+:host {
+  display: block;
+}
+
+.controles {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tabs button {
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #333;
+}
+
+.tabs button.activo {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.nav-dia {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-dia input {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+tr.cancelada td {
+  color: #999;
+  text-decoration: line-through;
+}
+
+.semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.columna-dia {
+  background: white;
+  border-radius: 8px;
+  padding: 0.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-height: 120px;
+}
+
+.encabezado-dia {
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cita-mini {
+  background: #eff6ff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cita-mini.cancelada {
+  background: #f3f4f6;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.sin-citas {
+  color: #ccc;
+  font-size: 0.8rem;
+}

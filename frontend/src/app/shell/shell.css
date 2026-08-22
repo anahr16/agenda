@@ -1,0 +1,61 @@
+.shell {
+  min-height: 100vh;
+  background: #f4f5f7;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.75rem 1.5rem;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.marca {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.barra a {
+  color: #333;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.barra a.activo {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.espaciador {
+  flex: 1;
+}
+
+.usuario {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+button.secundario {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.aviso-push {
+  margin: 0;
+  padding: 0.5rem 1.5rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.85rem;
+}
+
+.contenido {
+  padding: 1.5rem;
+  max-width: 960px;
+  margin: 0 auto;
+}

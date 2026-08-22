@@ -1,0 +1,19 @@
+<div class="shell">
+  <nav class="barra">
+    <span class="marca">Turnero</span>
+    <a routerLink="/agenda" routerLinkActive="activo">Agenda</a>
+    <a routerLink="/clientes" routerLinkActive="activo">Clientes</a>
+    <span class="espaciador"></span>
+    @if (pushDisponible) {
+      <button type="button" class="secundario" (click)="activarRecordatorios()">Activar recordatorios</button>
+    }
+    <span class="usuario">{{ email }}</span>
+    <button type="button" class="secundario" (click)="salir()">Salir</button>
+  </nav>
+  @if (mensajePush()) {
+    <p class="aviso-push">{{ mensajePush() }}</p>
+  }
+  <main class="contenido">
+    <router-outlet />
+  </main>
+</div>

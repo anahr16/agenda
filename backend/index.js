@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const authRouter = require('./routes/auth');
 const clientesRouter = require('./routes/clientes');
 const citasRouter = require('./routes/citas');
@@ -8,7 +9,9 @@ const iniciarRecordatorios = require('./recordatorios');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4200';
 
+app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
 app.get('/health', (req, res) => {

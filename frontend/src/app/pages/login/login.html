@@ -1,0 +1,28 @@
+<div class="login-page">
+  <form class="login-card" (ngSubmit)="enviar()">
+    <h1>Turnero</h1>
+    <p class="subtitulo">{{ modo() === 'login' ? 'Iniciar sesion' : 'Crear cuenta del dueño' }}</p>
+
+    <label>
+      Email
+      <input type="email" name="email" [(ngModel)]="email" required autocomplete="username" />
+    </label>
+
+    <label>
+      Contraseña
+      <input type="password" name="password" [(ngModel)]="password" required autocomplete="current-password" />
+    </label>
+
+    @if (error()) {
+      <p class="mensaje">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="cargando()">
+      {{ modo() === 'login' ? 'Entrar' : 'Registrarme' }}
+    </button>
+
+    <button type="button" class="enlace" (click)="alternarModo()">
+      {{ modo() === 'login' ? 'No tengo cuenta todavia' : 'Ya tengo cuenta' }}
+    </button>
+  </form>
+</div>

@@ -25,6 +25,7 @@
       <option [value]="e">{{ etiqueta(e) }}</option>
     }
   </select>
+  <input type="datetime-local" name="fecha_entrevista" title="Fecha y hora de entrevista (opcional)" [(ngModel)]="fecha_entrevista" />
   <input type="url" name="link" placeholder="Link (opcional)" [(ngModel)]="link" />
   <input type="text" name="descripcion" placeholder="De que trata (opcional)" [(ngModel)]="descripcion" />
   <input type="text" name="notas" placeholder="Notas (opcional)" [(ngModel)]="notas" />
@@ -58,6 +59,7 @@
       <th>Portal</th>
       <th>Fecha</th>
       <th>Estado</th>
+      <th>Entrevista</th>
       <th>De que trata</th>
       <th></th>
     </tr>
@@ -70,6 +72,7 @@
         <td>{{ postulacion.portal || '-' }}</td>
         <td>{{ postulacion.fecha_postulacion }}</td>
         <td>{{ etiqueta(postulacion.estado) }}</td>
+        <td>{{ formatoEntrevista(postulacion.fecha_entrevista) }}</td>
         <td>{{ postulacion.descripcion || '-' }}</td>
         <td class="acciones">
           <button type="button" class="secundario" (click)="editar(postulacion)">Editar</button>
@@ -78,7 +81,7 @@
       </tr>
     } @empty {
       <tr>
-        <td colspan="7">Todavia no hay postulaciones cargadas.</td>
+        <td colspan="8">Todavia no hay postulaciones cargadas.</td>
       </tr>
     }
   </tbody>

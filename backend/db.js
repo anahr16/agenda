@@ -42,8 +42,14 @@ db.exec(`
     link TEXT,
     fecha_postulacion TEXT NOT NULL,
     estado TEXT NOT NULL DEFAULT 'enviada',
+    fecha_entrevista TEXT,
     notas TEXT,
     creado_en TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS postulaciones_emails_procesados (
+    message_id TEXT PRIMARY KEY,
+    procesado_en TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
 
@@ -51,6 +57,12 @@ db.exec(`
 const columnasCitas = db.prepare('PRAGMA table_info(citas)').all();
 if (!columnasCitas.some((columna) => columna.name === 'recordatorio_enviado')) {
   db.exec('ALTER TABLE citas ADD COLUMN recordatorio_enviado INTEGER NOT NULL DEFAULT 0');
+}
+
+// Migracion: agrega fecha_entrevista si la tabla postulaciones ya existia sin esa columna.
+const columnasPostulaciones = db.prepare('PRAGMA table_info(postulaciones)').all();
+if (!columnasPostulaciones.some((columna) => columna.name === 'fecha_entrevista')) {
+  db.exec('ALTER TABLE postulaciones ADD COLUMN fecha_entrevista TEXT');
 }
 
 module.exports = db;

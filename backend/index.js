@@ -7,6 +7,7 @@ const citasRouter = require('./routes/citas');
 const postulacionesRouter = require('./routes/postulaciones');
 const requireAuth = require('./middleware/auth');
 const iniciarRecordatorios = require('./recordatorios');
+const iniciarSincronizacionEmails = require('./emailSync');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -27,4 +28,5 @@ app.use('/postulaciones', requireAuth, postulacionesRouter);
 app.listen(PORT, () => {
   console.log(`Turnero backend escuchando en http://localhost:${PORT}`);
   iniciarRecordatorios();
+  iniciarSincronizacionEmails();
 });

@@ -14,6 +14,7 @@ export interface Postulacion {
   link: string | null;
   fecha_postulacion: string;
   estado: EstadoPostulacion;
+  fecha_entrevista: string | null;
   notas: string | null;
   creado_en: string;
 }
@@ -32,6 +33,7 @@ export interface DatosPostulacion {
   link?: string;
   fecha_postulacion: string;
   estado?: EstadoPostulacion;
+  fecha_entrevista?: string;
   notas?: string;
 }
 

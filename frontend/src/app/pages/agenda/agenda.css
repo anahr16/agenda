@@ -88,7 +88,22 @@ tr.cancelada td {
   text-decoration: line-through;
 }
 
+.entrevista-mini {
+  background: #fef3c7;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
 .sin-citas {
   color: #ccc;
   font-size: 0.8rem;
+}
+
+.tabla-entrevistas {
+  margin-bottom: 1rem;
+  border-left: 3px solid #f59e0b;
 }

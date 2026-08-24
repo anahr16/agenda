@@ -47,10 +47,19 @@ button[type='submit'] {
   color: white;
 }
 
-button.secundario {
+button.secundario,
+a.secundario {
   background: white;
   border: 1px solid #d1d5db;
   color: #333;
+}
+
+a.secundario {
+  display: inline-block;
+  text-decoration: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }
 
 .mensaje {

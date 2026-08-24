@@ -33,8 +33,11 @@ fotógrafos, etc.).
 - [x] Frontend web en Angular (login, clientes, agenda día/semana, activar
       push) — Firebase configurado, notificaciones push del navegador
       funcionando
-- [x] Módulo de postulaciones de trabajo (CRUD + panel de estadísticas),
-      carga manual por ahora — ver sección propia más abajo
+- [x] Módulo de postulaciones de trabajo (CRUD + panel de estadísticas +
+      entrevistas en la Agenda) — ver sección propia más abajo
+- [x] Detección automática de postulaciones y cambios de estado vía email
+      (IMAP, Chiletrabajos y Computrabajo por ahora) — falta "entrevista"
+      y el descarte propio de Chiletrabajos, pendiente de ejemplos reales
 - [ ] App Android (Java + Retrofit) — migración futura de la web
 
 ## Backend (`backend/`)
@@ -61,6 +64,9 @@ la variable de entorno `PORT`, ej: `PORT=5000 npm run dev`.
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | Path al JSON de credenciales de la cuenta de servicio de Firebase (ver sección de recordatorios). Vacío = modo simulado. |
 | `RECORDATORIO_MINUTOS_ANTES` | Con cuántos minutos de anticipación se manda el recordatorio de una cita. Default `30`. |
 | `FRONTEND_URL` | Origen permitido por CORS para llamar a la API. Default `http://localhost:4200` (donde corre el frontend Angular en desarrollo). |
+| `IMAP_HOST` | Servidor IMAP para la sincronización de postulaciones por email (ver sección de postulaciones). Default `imap.gmail.com`. |
+| `IMAP_USER` | Casilla de Gmail a leer. Vacío = sincronización desactivada. |
+| `IMAP_APP_PASSWORD` | Contraseña de aplicación de esa casilla (no la contraseña normal de la cuenta). |
 
 ### Base de datos
 
@@ -164,17 +170,88 @@ etc.).
 
 Cada postulación tiene: `empresa`, `puesto`, `portal` (texto libre, ej.
 LinkedIn/Bumeran/Computrabajo/email), `descripcion` (de qué trata el
-puesto), `link`, `fecha_postulacion` y `estado` (`enviada` → `vista` →
-`entrevista` → `rechazada`/`oferta`, default `enviada`). `GET
-/postulaciones/stats` devuelve el total y los conteos por estado y por
-portal que arma el panel de análisis en el frontend.
+puesto), `link`, `fecha_postulacion`, `estado` (`enviada` → `vista` →
+`entrevista` → `rechazada`/`oferta`, default `enviada`) y
+`fecha_entrevista` (opcional, fecha y hora de la entrevista si la hay).
+`GET /postulaciones/stats` devuelve el total y los conteos por estado y
+por portal que arma el panel de análisis en el frontend.
 
-**Por ahora la carga es 100% manual** — no hay integración con LinkedIn ni
-con los portales de empleo (scrapearlos violaría sus términos de servicio y
-no es confiable). La idea a futuro es detectar automáticamente los cambios
-de estado leyendo las notificaciones que ya llegan por email (Gmail
-API/IMAP), en vez de scrapear los sitios; queda pendiente definir con qué
-proveedor de correo y cómo dar acceso.
+Las postulaciones con `fecha_entrevista` cargada aparecen también en la
+pantalla de **Agenda** (día y semana), junto con las citas normales pero
+diferenciadas visualmente, para tener las entrevistas de trabajo en el
+mismo calendario.
+
+**Carga manual** desde la pantalla de Postulaciones, más **detección
+automática de nuevas postulaciones vía email** (`backend/emailSync.js`):
+no hay integración con LinkedIn ni con los portales de empleo (scrapearlos
+violaría sus términos de servicio y no es confiable), en cambio se lee la
+casilla de correo por IMAP y se detectan los mails de confirmación de
+postulación que ya llegan solos.
+
+**Cómo funciona:** un cron (`node-cron`, corre cada 10 minutos) revisa los
+mails de los últimos 3 días de la casilla configurada (`IMAP_USER` /
+`IMAP_APP_PASSWORD` en `.env`). Cada mail se compara contra las reglas de
+`backend/emailParsers.js` (varias por portal, matcheando por remitente),
+que son de dos tipos:
+
+- **`nueva_postulacion`** (empresa + puesto): crea la postulación
+  (`estado: enviada`) si no existía ya una con esa misma empresa+puesto.
+- **`cambio_estado`** (puesto + estado, empresa opcional): busca la
+  postulación existente y le actualiza el estado. Si el mail no menciona
+  la empresa, se busca solo por puesto — si hay 0 o más de 1 coincidencia
+  no se toca nada y se loguea una advertencia (para no actualizar la
+  postulación equivocada). Los estados `rechazada`/`oferta` quedan
+  "trabados": una vez ahí no se pisan con actualizaciones automáticas
+  posteriores.
+
+Cada mail procesado se guarda en la tabla `postulaciones_emails_procesados`
+(por `Message-ID`) para no volver a procesarlo. Si un mail no trae parte de
+texto plano (algunos portales mandan solo HTML), se convierte el HTML a
+texto (`html-to-text`) antes de aplicar las reglas. Si `IMAP_USER`/
+`IMAP_APP_PASSWORD` están vacíos, la sincronización queda desactivada (se
+loguea un aviso una sola vez).
+
+**Portales soportados hoy:** Chiletrabajos (`chiletrabajos.cl`) y
+Computrabajo (`computrabajo.com`), cada uno con su regla de
+`nueva_postulacion` y de `cambio_estado`. Para sumar un portal nuevo, o un
+cambio de estado que todavía no esté cubierto (ej. entrevista, o el "te
+descartaron" de Chiletrabajos), hace falta un mail de ejemplo real
+(remitente + asunto + cuerpo) para escribir la regla en `emailParsers.js`.
+
+**Cosas no obvias que aparecieron al probar con la casilla real:**
+
+- **Computrabajo no menciona la empresa** en sus mails de cambio de
+  estado, solo el puesto — por eso ese parser no devuelve `empresa` y se
+  busca por puesto solamente.
+- **El asunto de Computrabajo puede ser engañoso**: un mail titulado "tu
+  candidatura avanza en el proceso de selección" puede en realidad ser un
+  **descarte** — el estado real está codificado en el link "Ver mi
+  postulación" (`utm_campaign=auto_cand_MatchDescartado` vs
+  `...MatchVisto`, URL-encoded como `%3D` dentro del link de redirección),
+  no en el texto visible del mail.
+- **Mails en texto plano vienen con word-wrap**: el texto se corta con
+  saltos de línea a mitad de oración, así que las reglas capturan a través
+  de saltos de línea (`[\s\S]` en vez de `.`) y normalizan espacios
+  después.
+- **Chiletrabajos tiene un bug de codificación propio**: para algunos
+  avisos, el título del puesto llega con caracteres corruptos (ej. "Full
+  Stack â VI RegiÃ³n" en vez de "Full Stack – VI Región") ya en el HTML
+  que manda el portal — no es algo que se pueda arreglar del lado del
+  parser sin heurísticas frágiles, así que puede haber postulaciones con
+  el puesto con caracteres raros ocasionalmente.
+
+**Configurar la contraseña de aplicación de Gmail:**
+
+1. Activar la verificación en 2 pasos en la cuenta de Google (si no está
+   activada, Gmail no deja generar contraseñas de aplicación):
+   [myaccount.google.com/security](https://myaccount.google.com/security).
+2. Ahí mismo, buscar **"Contraseñas de aplicaciones"** (o ir directo a
+   [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)).
+3. Generar una nueva (nombre libre, ej. "Turnero"), copiar la clave de 16
+   caracteres que muestra.
+4. En `backend/.env`: `IMAP_USER=tu-email@gmail.com` y
+   `IMAP_APP_PASSWORD=` esa clave (sin espacios).
+5. Reiniciar el backend.
 
 ### Nota sobre hot-reload en WSL
 

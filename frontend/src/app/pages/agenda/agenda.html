@@ -37,6 +37,30 @@
 }
 
 @if (vista() === 'dia') {
+  @if (entrevistasDelDia().length > 0) {
+    <table class="tabla tabla-entrevistas">
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Entrevista</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entrevista of entrevistasDelDia(); track entrevista.id) {
+          <tr>
+            <td>{{ hora(entrevista.fecha_entrevista!) }}</td>
+            <td>{{ entrevista.empresa }} - {{ entrevista.puesto }}</td>
+            <td>{{ entrevista.estado }}</td>
+            <td class="acciones">
+              <a routerLink="/postulaciones" class="secundario">Ver en Postulaciones</a>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
   <table class="tabla">
     <thead>
       <tr>
@@ -78,7 +102,13 @@
           <button type="button" class="cita-mini" [class.cancelada]="cita.estado === 'cancelada'" (click)="irADia(dia.fecha)">
             {{ hora(cita.inicio) }} {{ nombreCliente(cita.cliente_id) }}
           </button>
-        } @empty {
+        }
+        @for (entrevista of dia.entrevistas; track entrevista.id) {
+          <button type="button" class="entrevista-mini" (click)="irADia(dia.fecha)">
+            {{ hora(entrevista.fecha_entrevista!) }} {{ entrevista.empresa }}
+          </button>
+        }
+        @if (dia.citas.length === 0 && dia.entrevistas.length === 0) {
           <span class="sin-citas">-</span>
         }
       </div>

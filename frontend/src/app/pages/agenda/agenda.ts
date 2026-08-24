@@ -1,7 +1,9 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Cliente, ClientesService } from '../../core/clientes.service';
 import { Cita, CitasService } from '../../core/citas.service';
+import { Postulacion, PostulacionesService } from '../../core/postulaciones.service';
 
 function toFechaInput(date: Date): string {
   const y = date.getFullYear();
@@ -32,13 +34,14 @@ function inicioDeSemana(date: Date): Date {
 @Component({
   selector: 'app-agenda',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './agenda.html',
   styleUrl: './agenda.css',
 })
 export class Agenda implements OnInit {
   citas = signal<Cita[]>([]);
   clientes = signal<Cliente[]>([]);
+  postulaciones = signal<Postulacion[]>([]);
   vista = signal<'dia' | 'semana'>('dia');
   fechaSeleccionada = signal<string>(toFechaInput(new Date()));
   editandoId = signal<number | null>(null);
@@ -56,6 +59,12 @@ export class Agenda implements OnInit {
       .sort((a, b) => a.inicio.localeCompare(b.inicio))
   );
 
+  entrevistasDelDia = computed(() =>
+    this.postulaciones()
+      .filter((p) => p.fecha_entrevista && toFechaInput(parseUtc(p.fecha_entrevista)) === this.fechaSeleccionada())
+      .sort((a, b) => a.fecha_entrevista!.localeCompare(b.fecha_entrevista!))
+  );
+
   diasDeLaSemana = computed(() => {
     const inicio = inicioDeSemana(new Date(`${this.fechaSeleccionada()}T00:00:00`));
     return Array.from({ length: 7 }, (_, i) => {
@@ -68,15 +77,23 @@ export class Agenda implements OnInit {
         citas: this.citas()
           .filter((cita) => toFechaInput(parseUtc(cita.inicio)) === fechaStr)
           .sort((a, b) => a.inicio.localeCompare(b.inicio)),
+        entrevistas: this.postulaciones()
+          .filter((p) => p.fecha_entrevista && toFechaInput(parseUtc(p.fecha_entrevista)) === fechaStr)
+          .sort((a, b) => a.fecha_entrevista!.localeCompare(b.fecha_entrevista!)),
       };
     });
   });
 
-  constructor(private citasService: CitasService, private clientesService: ClientesService) {}
+  constructor(
+    private citasService: CitasService,
+    private clientesService: ClientesService,
+    private postulacionesService: PostulacionesService
+  ) {}
 
   ngOnInit(): void {
     this.cargarClientes();
     this.cargarCitas();
+    this.cargarPostulaciones();
   }
 
   cargarClientes(): void {
@@ -85,6 +102,10 @@ export class Agenda implements OnInit {
 
   cargarCitas(): void {
     this.citasService.listar().subscribe((citas) => this.citas.set(citas));
+  }
+
+  cargarPostulaciones(): void {
+    this.postulacionesService.listar().subscribe((postulaciones) => this.postulaciones.set(postulaciones));
   }
 
   nombreCliente(clienteId: number): string {

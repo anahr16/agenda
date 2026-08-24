@@ -23,6 +23,24 @@ function toFechaInput(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function parseUtc(iso: string): Date {
+  return new Date(iso.endsWith('Z') ? iso : `${iso}Z`);
+}
+
+function utcIsoToDatetimeLocalInput(iso: string): string {
+  const date = parseUtc(iso);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
+
+function datetimeLocalInputToUtcIso(local: string): string {
+  return new Date(local).toISOString().slice(0, 19);
+}
+
 @Component({
   selector: 'app-postulaciones',
   standalone: true,
@@ -46,6 +64,7 @@ export class Postulaciones implements OnInit {
   link = '';
   fecha_postulacion = toFechaInput(new Date());
   estado: EstadoPostulacion = 'enviada';
+  fecha_entrevista = '';
   notas = '';
 
   postulacionesFiltradas = computed(() => {
@@ -74,6 +93,11 @@ export class Postulaciones implements OnInit {
     return ETIQUETAS_ESTADO[estado as EstadoPostulacion] ?? estado;
   }
 
+  formatoEntrevista(iso: string | null): string {
+    if (!iso) return '-';
+    return parseUtc(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
   cargar(): void {
     this.postulacionesService.listar().subscribe((postulaciones) => this.postulaciones.set(postulaciones));
     this.postulacionesService.stats().subscribe((stats) => this.stats.set(stats));
@@ -88,6 +112,7 @@ export class Postulaciones implements OnInit {
     this.link = postulacion.link ?? '';
     this.fecha_postulacion = postulacion.fecha_postulacion;
     this.estado = postulacion.estado;
+    this.fecha_entrevista = postulacion.fecha_entrevista ? utcIsoToDatetimeLocalInput(postulacion.fecha_entrevista) : '';
     this.notas = postulacion.notas ?? '';
   }
 
@@ -100,6 +125,7 @@ export class Postulaciones implements OnInit {
     this.link = '';
     this.fecha_postulacion = toFechaInput(new Date());
     this.estado = 'enviada';
+    this.fecha_entrevista = '';
     this.notas = '';
   }
 
@@ -113,6 +139,7 @@ export class Postulaciones implements OnInit {
       link: this.link || undefined,
       fecha_postulacion: this.fecha_postulacion,
       estado: this.estado,
+      fecha_entrevista: this.fecha_entrevista ? datetimeLocalInputToUtcIso(this.fecha_entrevista) : undefined,
       notas: this.notas || undefined,
     };
     const id = this.editandoId();

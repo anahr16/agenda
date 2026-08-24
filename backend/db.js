@@ -44,6 +44,7 @@ db.exec(`
     estado TEXT NOT NULL DEFAULT 'enviada',
     fecha_entrevista TEXT,
     notas TEXT,
+    recordatorio_seguimiento_enviado INTEGER NOT NULL DEFAULT 0,
     creado_en TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -63,6 +64,9 @@ if (!columnasCitas.some((columna) => columna.name === 'recordatorio_enviado')) {
 const columnasPostulaciones = db.prepare('PRAGMA table_info(postulaciones)').all();
 if (!columnasPostulaciones.some((columna) => columna.name === 'fecha_entrevista')) {
   db.exec('ALTER TABLE postulaciones ADD COLUMN fecha_entrevista TEXT');
+}
+if (!columnasPostulaciones.some((columna) => columna.name === 'recordatorio_seguimiento_enviado')) {
+  db.exec('ALTER TABLE postulaciones ADD COLUMN recordatorio_seguimiento_enviado INTEGER NOT NULL DEFAULT 0');
 }
 
 module.exports = db;

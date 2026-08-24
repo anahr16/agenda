@@ -73,7 +73,12 @@
         <td>{{ postulacion.fecha_postulacion }}</td>
         <td>{{ etiqueta(postulacion.estado) }}</td>
         <td>{{ formatoEntrevista(postulacion.fecha_entrevista) }}</td>
-        <td>{{ postulacion.descripcion || '-' }}</td>
+        <td class="descripcion" [title]="postulacion.descripcion || ''">
+          {{ resumenDescripcion(postulacion.descripcion) }}
+          @if (postulacion.link) {
+            <a [href]="postulacion.link" target="_blank" rel="noopener">Ver aviso</a>
+          }
+        </td>
         <td class="acciones">
           <button type="button" class="secundario" (click)="editar(postulacion)">Editar</button>
           <button type="button" class="secundario" (click)="borrar(postulacion)">Borrar</button>

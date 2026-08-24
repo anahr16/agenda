@@ -98,6 +98,11 @@ export class Postulaciones implements OnInit {
     return parseUtc(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
+  resumenDescripcion(descripcion: string | null): string {
+    if (!descripcion) return '-';
+    return descripcion.length > 140 ? `${descripcion.slice(0, 140)}…` : descripcion;
+  }
+
   cargar(): void {
     this.postulacionesService.listar().subscribe((postulaciones) => this.postulaciones.set(postulaciones));
     this.postulacionesService.stats().subscribe((stats) => this.stats.set(stats));

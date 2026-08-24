@@ -4,6 +4,7 @@ const { convert } = require('html-to-text');
 const cron = require('node-cron');
 const db = require('./db');
 const PARSERS = require('./emailParsers');
+const { obtenerDescripcion } = require('./jobPageScraper');
 
 const DIAS_ATRAS = 3;
 const ESTADOS_TERMINALES = ['rechazada', 'oferta'];
@@ -57,26 +58,42 @@ function buscarPostulacionesPorPuesto(puesto) {
   return db.prepare('SELECT * FROM postulaciones WHERE lower(puesto) = lower(?)').all(puesto);
 }
 
-function crearPostulacion({ empresa, puesto, portal, fecha }) {
-  db.prepare(
-    `INSERT INTO postulaciones (empresa, puesto, portal, fecha_postulacion, estado, notas)
-     VALUES (?, ?, ?, ?, 'enviada', 'Detectada automaticamente por email')`
-  ).run(empresa, puesto, portal, fecha);
+function crearPostulacion({ empresa, puesto, portal, link, fecha }) {
+  const resultado = db
+    .prepare(
+      `INSERT INTO postulaciones (empresa, puesto, portal, link, fecha_postulacion, estado, notas)
+       VALUES (?, ?, ?, ?, ?, 'enviada', 'Detectada automaticamente por email')`
+    )
+    .run(empresa, puesto, portal, link || null, fecha);
+  return resultado.lastInsertRowid;
 }
 
 function actualizarEstadoPostulacion(id, estado) {
   db.prepare('UPDATE postulaciones SET estado = ? WHERE id = ?').run(estado, id);
 }
 
-function procesarNuevaPostulacion(datos, parserUsado, fechaMail) {
+function actualizarDescripcion(id, descripcion) {
+  db.prepare('UPDATE postulaciones SET descripcion = ? WHERE id = ?').run(descripcion, id);
+}
+
+async function procesarNuevaPostulacion(datos, parserUsado, fechaMail) {
   if (buscarPostulacion(datos.empresa, datos.puesto)) return;
-  crearPostulacion({
+  const id = crearPostulacion({
     empresa: datos.empresa,
     puesto: datos.puesto,
     portal: parserUsado.portal,
+    link: datos.link,
     fecha: fechaMail.toISOString().slice(0, 10),
   });
   console.log(`[email-sync] Postulacion detectada: ${datos.empresa} - ${datos.puesto} (${parserUsado.portal})`);
+
+  if (!datos.link) return;
+  try {
+    const descripcion = await obtenerDescripcion(datos.link);
+    if (descripcion) actualizarDescripcion(id, descripcion);
+  } catch (err) {
+    console.warn(`[email-sync] No se pudo traer la descripcion de ${datos.link}:`, err.message);
+  }
 }
 
 function procesarCambioEstado(datos) {
@@ -151,7 +168,7 @@ async function sincronizarEmails() {
         }
 
         if (parserUsado.tipo === 'nueva_postulacion') {
-          procesarNuevaPostulacion(datos, parserUsado, msg.envelope.date || new Date());
+          await procesarNuevaPostulacion(datos, parserUsado, msg.envelope.date || new Date());
         } else if (parserUsado.tipo === 'cambio_estado') {
           procesarCambioEstado(datos);
         }

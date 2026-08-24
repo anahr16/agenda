@@ -1,4 +1,10 @@
 require('dotenv').config();
+// En este entorno (WSL) las conexiones salientes intentan IPv6 primero, que
+// no funciona, y recien despues caen a IPv4 -- a veces con timeout en vez de
+// fallback. Esto rompe fetch()/https hacia hosts con soporte IPv6 (ej. la
+// API de Telegram). Desactiva el "Happy Eyeballs" dual-stack para forzar
+// IPv4 en todo el proceso.
+require('net').setDefaultAutoSelectFamily(false);
 const express = require('express');
 const cors = require('cors');
 const authRouter = require('./routes/auth');
@@ -8,6 +14,7 @@ const postulacionesRouter = require('./routes/postulaciones');
 const requireAuth = require('./middleware/auth');
 const iniciarRecordatorios = require('./recordatorios');
 const iniciarSincronizacionEmails = require('./emailSync');
+const iniciarRecordatoriosPostulaciones = require('./recordatoriosPostulaciones');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -29,4 +36,5 @@ app.listen(PORT, () => {
   console.log(`Turnero backend escuchando en http://localhost:${PORT}`);
   iniciarRecordatorios();
   iniciarSincronizacionEmails();
+  iniciarRecordatoriosPostulaciones();
 });

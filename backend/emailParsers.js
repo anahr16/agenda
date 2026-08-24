@@ -2,7 +2,9 @@
 // postulacion. Cada parser se prueba por remitente (regex); de los que
 // matchean el remitente, se usa el primero cuyo `extraer` devuelva datos.
 //
-// `tipo: 'nueva_postulacion'` -> extraer() devuelve { empresa, puesto }
+// `tipo: 'nueva_postulacion'` -> extraer() devuelve { empresa, puesto, link? }
+//   (link es opcional: si el mail trae el link al aviso exacto, se usa
+//   despues en jobPageScraper.js para traer la descripcion completa)
 // `tipo: 'cambio_estado'`     -> extraer() devuelve { puesto, estado, empresa? }
 //   (empresa es opcional: si el mail no la menciona, en emailSync.js se
 //   busca la postulacion existente solo por puesto)
@@ -32,8 +34,9 @@ const PARSERS = [
     extraer(asunto, texto) {
       const empresa = (texto.match(/Postulaci[oó]n Enviada a ([\s\S]+?)\.(?=\s|$)/i) || [])[1];
       const puesto = (texto.match(/Tu Postulaci[oó]n a ([\s\S]+?) fue enviada correctamente/i) || [])[1];
+      const link = (texto.match(/https?:\/\/www\.chiletrabajos\.cl\/trabajo\/\d+/i) || [])[0];
       if (!empresa || !puesto) return null;
-      return { empresa: limpiar(empresa), puesto: limpiar(puesto) };
+      return { empresa: limpiar(empresa), puesto: limpiar(puesto), link };
     },
   },
   {

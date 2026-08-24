@@ -38,6 +38,9 @@ fotógrafos, etc.).
 - [x] Detección automática de postulaciones y cambios de estado vía email
       (IMAP, Chiletrabajos y Computrabajo por ahora) — falta "entrevista"
       y el descarte propio de Chiletrabajos, pendiente de ejemplos reales
+- [x] Descripción del aviso por scraping (solo Chiletrabajos, el único
+      portal cuyo mail trae el link real) + recordatorio de seguimiento
+      por Telegram a los 2 días sin novedades
 - [ ] App Android (Java + Retrofit) — migración futura de la web
 
 ## Backend (`backend/`)
@@ -67,6 +70,9 @@ la variable de entorno `PORT`, ej: `PORT=5000 npm run dev`.
 | `IMAP_HOST` | Servidor IMAP para la sincronización de postulaciones por email (ver sección de postulaciones). Default `imap.gmail.com`. |
 | `IMAP_USER` | Casilla de Gmail a leer. Vacío = sincronización desactivada. |
 | `IMAP_APP_PASSWORD` | Contraseña de aplicación de esa casilla (no la contraseña normal de la cuenta). |
+| `TELEGRAM_BOT_TOKEN` | Token del bot de Telegram para los recordatorios de seguimiento (ver esa sección). Vacío = modo simulado. |
+| `TELEGRAM_CHAT_ID` | Chat o canal de Telegram al que se mandan los recordatorios. |
+| `SEGUIMIENTO_POSTULACIONES_DIAS` | Días sin novedades antes de mandar el recordatorio de seguimiento. Default `2`. |
 
 ### Base de datos
 
@@ -252,6 +258,56 @@ descartaron" de Chiletrabajos), hace falta un mail de ejemplo real
 4. En `backend/.env`: `IMAP_USER=tu-email@gmail.com` y
    `IMAP_APP_PASSWORD=` esa clave (sin espacios).
 5. Reiniciar el backend.
+
+**Descripción completa del aviso (`backend/jobPageScraper.js`):** cuando el
+mail de `nueva_postulacion` trae el link al aviso exacto, se entra a esa
+página y se trae el texto de la descripción (con `cheerio`, un selector
+por portal). Solo Chiletrabajos por ahora — es el único cuyo mail de
+confirmación trae el link real; el de Computrabajo solo trae "ofertas
+recomendadas" similares, ninguna es la real, así que no hay forma
+confiable de traer la descripción para esas. Si el scraping falla (aviso
+dado de baja, portal caído, cambio de diseño) no rompe la sincronización,
+solo se loguea un aviso y la postulación queda sin descripción.
+
+### Recordatorios de seguimiento (Telegram)
+
+Un cron (corre cada hora, `backend/recordatoriosPostulaciones.js`) busca
+postulaciones en estado `enviada` cuya `fecha_postulacion` tenga 2 días o
+más (configurable con `SEGUIMIENTO_POSTULACIONES_DIAS`) y manda un mensaje
+de Telegram recordando hacer seguimiento. Cada postulación se recuerda una
+sola vez (columna `recordatorio_seguimiento_enviado`) — si después le
+llega un cambio de estado por email, no hace falta seguimiento y no se
+manda nada más.
+
+Usa la API oficial de bots de Telegram (HTTP simple, sin librerías ni
+sesión que mantener — a diferencia de WhatsApp, que no tiene API oficial
+gratuita y requeriría automatizar la cuenta personal vía WhatsApp Web, algo
+que puede terminar en un baneo de la cuenta).
+
+**Configurar el bot:**
+
+1. En Telegram, hablar con **@BotFather** → `/newbot` → elegir nombre y
+   username (tiene que terminar en "bot").
+2. BotFather devuelve un token (`123456789:ABC...`) → guardarlo en
+   `backend/.env` como `TELEGRAM_BOT_TOKEN`.
+3. Mandarle un mensaje al bot (o agregarlo a un canal/grupo y postear ahí)
+   para poder identificar el chat.
+4. Conseguir el `chat_id`: `GET
+   https://api.telegram.org/bot<TOKEN>/getUpdates` — devuelve el mensaje
+   recién mandado con el `chat.id` adentro (para canales es un número
+   negativo largo). Guardarlo en `backend/.env` como `TELEGRAM_CHAT_ID`.
+5. Reiniciar el backend.
+
+Si `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` están vacíos, los recordatorios
+quedan en modo simulado (se loguean en consola, no se mandan).
+
+**Nota sobre IPv6 en WSL:** en este entorno las conexiones salientes
+intentan IPv6 primero y no tienen ruta, así que `fetch()`/`https` hacia
+hosts con soporte IPv6 (como la API de Telegram) fallaban con timeout. Se
+soluciona con `net.setDefaultAutoSelectFamily(false)` al inicio de
+`backend/index.js`, que fuerza IPv4 en todo el proceso. Si algún `fetch()`
+nuevo empieza a fallar con `ETIMEDOUT`/`ENETUNREACH`, es probablemente lo
+mismo.
 
 ### Nota sobre hot-reload en WSL
 

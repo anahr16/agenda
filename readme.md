@@ -77,8 +77,9 @@ la variable de entorno `PORT`, ej: `PORT=5000 npm run dev`.
 ### Base de datos
 
 SQLite, archivo `backend/turnero.sqlite` (se crea solo al arrancar, no se
-sube a git). El esquema (tablas `clientes`, `citas` y `usuarios`) se define
-en `backend/db.js` y se aplica automáticamente cada vez que arranca el
+sube a git). El esquema (tablas `clientes`, `citas`, `usuarios`,
+`postulaciones` y `postulaciones_emails_procesados`) se define en
+`backend/db.js` y se aplica automáticamente cada vez que arranca el
 server.
 
 ### Autenticación
@@ -108,7 +109,7 @@ requieren el header `Authorization: Bearer <token>`; `/auth` es pública.
 | GET    | `/postulaciones`      | Listar postulaciones de trabajo _(requiere login)_ |
 | GET    | `/postulaciones/stats`| Conteos por estado y por portal, para el panel de análisis _(requiere login)_ |
 | GET    | `/postulaciones/:id`  | Obtener una postulación _(requiere login)_ |
-| POST   | `/postulaciones`      | Crear postulación (`empresa`, `puesto`, `fecha_postulacion` obligatorios; `portal`, `descripcion`, `link`, `estado`, `notas` opcionales) _(requiere login)_ |
+| POST   | `/postulaciones`      | Crear postulación (`empresa`, `puesto`, `fecha_postulacion` obligatorios; `portal`, `descripcion`, `link`, `estado`, `fecha_entrevista`, `notas` opcionales) _(requiere login)_ |
 | PUT    | `/postulaciones/:id`  | Editar postulación _(requiere login)_ |
 | DELETE | `/postulaciones/:id`  | Borrar postulación _(requiere login)_ |
 

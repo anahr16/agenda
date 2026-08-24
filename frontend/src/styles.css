@@ -14,7 +14,8 @@ h1 {
 }
 
 .form-cliente,
-.form-cita {
+.form-cita,
+.form-postulacion {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -24,7 +25,9 @@ h1 {
 
 .form-cliente input,
 .form-cita input,
-.form-cita select {
+.form-cita select,
+.form-postulacion input,
+.form-postulacion select {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 6px;

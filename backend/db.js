@@ -32,6 +32,19 @@ db.exec(`
     fcm_token TEXT,
     creado_en TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS postulaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    empresa TEXT NOT NULL,
+    puesto TEXT NOT NULL,
+    portal TEXT,
+    descripcion TEXT,
+    link TEXT,
+    fecha_postulacion TEXT NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'enviada',
+    notas TEXT,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 // Migracion: agrega recordatorio_enviado si la tabla citas ya existia sin esa columna.

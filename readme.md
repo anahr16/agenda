@@ -33,6 +33,8 @@ fotógrafos, etc.).
 - [x] Frontend web en Angular (login, clientes, agenda día/semana, activar
       push) — falta configurar Firebase para que las notificaciones lleguen
       de verdad
+- [x] Módulo de postulaciones de trabajo (CRUD + panel de estadísticas),
+      carga manual por ahora — ver sección propia más abajo
 - [ ] App Android (Java + Retrofit) — migración futura de la web
 
 ## Backend (`backend/`)
@@ -91,6 +93,12 @@ requieren el header `Authorization: Bearer <token>`; `/auth` es pública.
 | POST   | `/citas`           | Crear cita (`cliente_id`, `inicio`, `fin` obligatorios; `estado` opcional, por defecto `confirmada`; `notas` opcional) _(requiere login)_ |
 | PUT    | `/citas/:id`       | Editar cita _(requiere login)_       |
 | DELETE | `/citas/:id`       | Borrar cita _(requiere login)_       |
+| GET    | `/postulaciones`      | Listar postulaciones de trabajo _(requiere login)_ |
+| GET    | `/postulaciones/stats`| Conteos por estado y por portal, para el panel de análisis _(requiere login)_ |
+| GET    | `/postulaciones/:id`  | Obtener una postulación _(requiere login)_ |
+| POST   | `/postulaciones`      | Crear postulación (`empresa`, `puesto`, `fecha_postulacion` obligatorios; `portal`, `descripcion`, `link`, `estado`, `notas` opcionales) _(requiere login)_ |
+| PUT    | `/postulaciones/:id`  | Editar postulación _(requiere login)_ |
+| DELETE | `/postulaciones/:id`  | Borrar postulación _(requiere login)_ |
 
 **Formato de fechas:** `inicio` y `fin` de una cita deben mandarse en UTC,
 formato ISO 8601 sin zona horaria, ej: `2026-08-22T10:00:00`. Es lo que
@@ -120,6 +128,27 @@ el envío real:
    en `backend/.env`.
 4. Reiniciar el server.
 
+### Postulaciones de trabajo
+
+Módulo aparte del turnero de citas, pensado para llevar un orden de las
+postulaciones laborales del dueño de la agenda y detectar en qué etapa se
+pierden (cuántas fueron vistas, cuántas dieron entrevista, tasa de rechazo,
+etc.).
+
+Cada postulación tiene: `empresa`, `puesto`, `portal` (texto libre, ej.
+LinkedIn/Bumeran/Computrabajo/email), `descripcion` (de qué trata el
+puesto), `link`, `fecha_postulacion` y `estado` (`enviada` → `vista` →
+`entrevista` → `rechazada`/`oferta`, default `enviada`). `GET
+/postulaciones/stats` devuelve el total y los conteos por estado y por
+portal que arma el panel de análisis en el frontend.
+
+**Por ahora la carga es 100% manual** — no hay integración con LinkedIn ni
+con los portales de empleo (scrapearlos violaría sus términos de servicio y
+no es confiable). La idea a futuro es detectar automáticamente los cambios
+de estado leyendo las notificaciones que ya llegan por email (Gmail
+API/IMAP), en vez de scrapear los sitios; queda pendiente definir con qué
+proveedor de correo y cómo dar acceso.
+
 ### Nota sobre `npm run dev` en WSL
 
 Si el proyecto vive en `/mnt/c/...` (filesystem de Windows montado en WSL),
@@ -131,9 +160,10 @@ proyecto a un path nativo de Linux (ej. `~/proyectos/...`).
 ## Frontend (`frontend/`)
 
 Angular standalone (sin server-side rendering). Pantallas: login/registro
-del dueño, clientes (alta/edición/borrado) y agenda (vista día/semana,
+del dueño, clientes (alta/edición/borrado), agenda (vista día/semana,
 alta/edición/cancelación/borrado de citas, botón para activar los
-recordatorios push del navegador).
+recordatorios push del navegador) y postulaciones (alta/edición/borrado,
+filtro por estado y panel con conteos/porcentajes por estado).
 
 ### Cómo correrlo
 

@@ -4,6 +4,7 @@ const cors = require('cors');
 const authRouter = require('./routes/auth');
 const clientesRouter = require('./routes/clientes');
 const citasRouter = require('./routes/citas');
+const postulacionesRouter = require('./routes/postulaciones');
 const requireAuth = require('./middleware/auth');
 const iniciarRecordatorios = require('./recordatorios');
 
@@ -21,6 +22,7 @@ app.get('/health', (req, res) => {
 app.use('/auth', authRouter);
 app.use('/clientes', requireAuth, clientesRouter);
 app.use('/citas', requireAuth, citasRouter);
+app.use('/postulaciones', requireAuth, postulacionesRouter);
 
 app.listen(PORT, () => {
   console.log(`Turnero backend escuchando en http://localhost:${PORT}`);

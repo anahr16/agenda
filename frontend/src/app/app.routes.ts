@@ -11,6 +11,10 @@ export const routes: Routes = [
     children: [
       { path: 'agenda', loadComponent: () => import('./pages/agenda/agenda').then((m) => m.Agenda) },
       { path: 'clientes', loadComponent: () => import('./pages/clientes/clientes').then((m) => m.Clientes) },
+      {
+        path: 'postulaciones',
+        loadComponent: () => import('./pages/postulaciones/postulaciones').then((m) => m.Postulaciones),
+      },
       { path: '', redirectTo: 'agenda', pathMatch: 'full' },
     ],
   },

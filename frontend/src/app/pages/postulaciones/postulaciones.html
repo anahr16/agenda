@@ -1,0 +1,85 @@
+<h1>Postulaciones</h1>
+
+@if (stats()) {
+  <div class="resumen">
+    <div class="resumen-total">
+      <span class="numero">{{ stats()!.total }}</span>
+      <span>postulaciones</span>
+    </div>
+    @for (item of resumenEstados(); track item.estado) {
+      <div class="resumen-item">
+        <span class="numero">{{ item.n }}</span>
+        <span>{{ item.etiqueta }} ({{ item.pct }}%)</span>
+      </div>
+    }
+  </div>
+}
+
+<form class="form-postulacion" (ngSubmit)="guardar()">
+  <input type="text" name="empresa" placeholder="Empresa" [(ngModel)]="empresa" required />
+  <input type="text" name="puesto" placeholder="Puesto" [(ngModel)]="puesto" required />
+  <input type="text" name="portal" placeholder="Portal (LinkedIn, Bumeran, ...)" [(ngModel)]="portal" />
+  <input type="date" name="fecha_postulacion" [(ngModel)]="fecha_postulacion" required />
+  <select name="estado" [(ngModel)]="estado">
+    @for (e of estados; track e) {
+      <option [value]="e">{{ etiqueta(e) }}</option>
+    }
+  </select>
+  <input type="url" name="link" placeholder="Link (opcional)" [(ngModel)]="link" />
+  <input type="text" name="descripcion" placeholder="De que trata (opcional)" [(ngModel)]="descripcion" />
+  <input type="text" name="notas" placeholder="Notas (opcional)" [(ngModel)]="notas" />
+  <button type="submit">{{ editandoId() ? 'Guardar cambios' : 'Agregar postulacion' }}</button>
+  @if (editandoId()) {
+    <button type="button" class="secundario" (click)="cancelarEdicion()">Cancelar</button>
+  }
+</form>
+
+@if (error()) {
+  <p class="mensaje">{{ error() }}</p>
+}
+
+<div class="filtro">
+  <label>
+    Filtrar por estado:
+    <select [ngModel]="filtroEstado()" (ngModelChange)="filtroEstado.set($event)" name="filtroEstado">
+      <option value="">Todas</option>
+      @for (e of estados; track e) {
+        <option [value]="e">{{ etiqueta(e) }}</option>
+      }
+    </select>
+  </label>
+</div>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Empresa</th>
+      <th>Puesto</th>
+      <th>Portal</th>
+      <th>Fecha</th>
+      <th>Estado</th>
+      <th>De que trata</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (postulacion of postulacionesFiltradas(); track postulacion.id) {
+      <tr>
+        <td>{{ postulacion.empresa }}</td>
+        <td>{{ postulacion.puesto }}</td>
+        <td>{{ postulacion.portal || '-' }}</td>
+        <td>{{ postulacion.fecha_postulacion }}</td>
+        <td>{{ etiqueta(postulacion.estado) }}</td>
+        <td>{{ postulacion.descripcion || '-' }}</td>
+        <td class="acciones">
+          <button type="button" class="secundario" (click)="editar(postulacion)">Editar</button>
+          <button type="button" class="secundario" (click)="borrar(postulacion)">Borrar</button>
+        </td>
+      </tr>
+    } @empty {
+      <tr>
+        <td colspan="7">Todavia no hay postulaciones cargadas.</td>
+      </tr>
+    }
+  </tbody>
+</table>

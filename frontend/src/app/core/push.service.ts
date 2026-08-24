@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, isSupported } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -29,6 +29,12 @@ export class PushService {
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     const app = initializeApp(environment.firebase);
     const messaging = getMessaging(app);
+
+    onMessage(messaging, (payload) => {
+      const { title, body } = payload.notification || {};
+      new Notification(title || 'Turnero', { body: body || '' });
+    });
+
     const token = await getToken(messaging, {
       vapidKey: environment.vapidKey,
       serviceWorkerRegistration: registration,

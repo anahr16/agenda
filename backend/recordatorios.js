@@ -1,6 +1,7 @@
 const path = require('path');
 const cron = require('node-cron');
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 const db = require('./db');
 
 let firebaseApp = null;
@@ -12,7 +13,7 @@ function getFirebaseApp() {
   if (!rutaCredenciales) return null;
   try {
     const serviceAccount = require(path.resolve(rutaCredenciales));
-    firebaseApp = admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    firebaseApp = initializeApp({ credential: cert(serviceAccount) });
     return firebaseApp;
   } catch (err) {
     console.error('[recordatorios] No se pudo inicializar Firebase:', err.message);
@@ -36,7 +37,7 @@ async function enviarPush(fcmToken, cita) {
     console.log(`[recordatorios] (simulado) cita #${cita.id} con ${cita.cliente_nombre} a las ${cita.inicio}`);
     return;
   }
-  await admin.messaging().send({
+  await getMessaging(app).send({
     token: fcmToken,
     notification: {
       title: 'Proximo turno',

@@ -28,11 +28,11 @@ fotógrafos, etc.).
 - [x] Modelo de datos SQLite (`clientes`, `citas`) + CRUD de `clientes`
 - [x] CRUD de `citas`
 - [x] Login del dueño de la agenda
-- [x] Recordatorios automáticos (cron + Firebase Cloud Messaging) — falta configurar
-      un proyecto real de Firebase; por ahora corren en modo simulado/logueado
+- [x] Recordatorios automáticos (cron + Firebase Cloud Messaging) — proyecto
+      Firebase real configurado (`turnero-ec3cd`), envío de push activado
 - [x] Frontend web en Angular (login, clientes, agenda día/semana, activar
-      push) — falta configurar Firebase para que las notificaciones lleguen
-      de verdad
+      push) — Firebase configurado, notificaciones push del navegador
+      funcionando
 - [x] Módulo de postulaciones de trabajo (CRUD + panel de estadísticas),
       carga manual por ahora — ver sección propia más abajo
 - [ ] App Android (Java + Retrofit) — migración futura de la web
@@ -128,6 +128,33 @@ el envío real:
    en `backend/.env`.
 4. Reiniciar el server.
 
+**Nota sobre la versión de `firebase-admin`:** a partir de v14 el paquete
+pasó a una API modular — `admin.credential.cert(...)` y `admin.messaging()`
+ya no existen. Hay que usar `require('firebase-admin/app')` (`initializeApp`,
+`cert`) y `require('firebase-admin/messaging')` (`getMessaging`). Es lo que
+usa `backend/recordatorios.js` actualmente; si se actualiza el paquete en el
+futuro y algo deja de andar, revisar el [changelog de
+firebase-admin](https://github.com/firebase/firebase-admin-node/releases)
+por si vuelve a cambiar la forma de inicializar.
+
+**Troubleshooting — "el push no llega":**
+- El backend puede reportar el envío como exitoso (Firebase lo acepta) sin
+  que el navegador muestre nada. Antes de sospechar de Firebase, revisar:
+- Si la pestaña de Turnero está en primer plano (enfocada), el aviso lo
+  maneja `onMessage` en `frontend/src/app/core/push.service.ts` (muestra un
+  `new Notification(...)` manual). Si está en segundo plano, lo maneja
+  `onBackgroundMessage` en `frontend/public/firebase-messaging-sw.js`.
+- El navegador **cachea el service worker viejo** y no lo actualiza solo al
+  cambiar el archivo. Si se edita `firebase-messaging-sw.js` (o se completa
+  la config de Firebase por primera vez), hay que ir a DevTools →
+  Application → Service Workers → "Unregister", cerrar y volver a abrir la
+  pestaña, y volver a activar los recordatorios.
+- Windows puede bloquear las notificaciones a nivel sistema aunque el
+  código funcione bien: revisar Asistente de enfoque (Focus Assist, debe
+  estar "Desactivado") y `Configuración → Sistema → Notificaciones →
+  Google Chrome` (tiene que estar permitido ahí, es un switch aparte del
+  permiso que pide el propio navegador).
+
 ### Postulaciones de trabajo
 
 Módulo aparte del turnero de citas, pensado para llevar un orden de las
@@ -149,13 +176,16 @@ de estado leyendo las notificaciones que ya llegan por email (Gmail
 API/IMAP), en vez de scrapear los sitios; queda pendiente definir con qué
 proveedor de correo y cómo dar acceso.
 
-### Nota sobre `npm run dev` en WSL
+### Nota sobre hot-reload en WSL
 
 Si el proyecto vive en `/mnt/c/...` (filesystem de Windows montado en WSL),
-`node --watch` no detecta los cambios guardados porque ese mount no dispara
-los eventos de inotify. En ese caso hay que reiniciar el server a mano
-después de cada cambio (`Ctrl+C` y `npm run dev` de nuevo), o mover el
-proyecto a un path nativo de Linux (ej. `~/proyectos/...`).
+ni `node --watch` (backend) ni el watcher de `ng serve` (frontend) detectan
+siempre los cambios guardados, porque ese mount no dispara los eventos de
+inotify de forma confiable. Si un cambio no se refleja, cortar el proceso
+del todo (`Ctrl+C`, no alcanza con `Ctrl+Z` que solo lo suspende y deja el
+puerto ocupado) y volver a correr `npm run dev` / `npm start`. La solución
+de fondo es mover el proyecto a un path nativo de Linux (ej.
+`~/proyectos/...`).
 
 ## Frontend (`frontend/`)
 

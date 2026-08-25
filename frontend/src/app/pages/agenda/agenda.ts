@@ -1,9 +1,14 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Cliente, ClientesService } from '../../core/clientes.service';
-import { Cita, CitasService } from '../../core/citas.service';
 import { Postulacion, PostulacionesService } from '../../core/postulaciones.service';
+
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+const NOTA_PREFIJO = 'agenda-nota-';
 
 function toFechaInput(date: Date): string {
   const y = date.getFullYear();
@@ -16,19 +21,19 @@ function parseUtc(iso: string): Date {
   return new Date(iso.endsWith('Z') ? iso : `${iso}Z`);
 }
 
-function toUtcIso(date: Date): string {
-  return date.toISOString().slice(0, 19);
+function inicioDeMes(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function localInputToUtcIso(fecha: string, hora: string): string {
-  return toUtcIso(new Date(`${fecha}T${hora}:00`));
-}
-
-function inicioDeSemana(date: Date): Date {
-  const copia = new Date(date);
-  const diaSemana = (copia.getDay() + 6) % 7; // lunes = 0
-  copia.setDate(copia.getDate() - diaSemana);
-  return copia;
+interface CeldaCalendario {
+  fecha: Date;
+  fechaKey: string;
+  numero: number;
+  otroMes: boolean;
+  hoy: boolean;
+  entrevistas: Postulacion[];
+  chipTexto: string;
+  clase: string;
 }
 
 @Component({
@@ -39,153 +44,117 @@ function inicioDeSemana(date: Date): Date {
   styleUrl: './agenda.css',
 })
 export class Agenda implements OnInit {
-  citas = signal<Cita[]>([]);
-  clientes = signal<Cliente[]>([]);
   postulaciones = signal<Postulacion[]>([]);
-  vista = signal<'dia' | 'semana'>('dia');
+  mesVisible = signal<Date>(inicioDeMes(new Date()));
   fechaSeleccionada = signal<string>(toFechaInput(new Date()));
-  editandoId = signal<number | null>(null);
-  error = signal<string | null>(null);
+  nota = signal<string>('');
 
-  clienteId = '';
-  fecha = toFechaInput(new Date());
-  horaInicio = '09:00';
-  horaFin = '09:30';
-  notas = '';
+  tituloMes = computed(() => `${MESES[this.mesVisible().getMonth()]} ${this.mesVisible().getFullYear()}`);
 
-  citasDelDia = computed(() =>
-    this.citas()
-      .filter((cita) => toFechaInput(parseUtc(cita.inicio)) === this.fechaSeleccionada())
-      .sort((a, b) => a.inicio.localeCompare(b.inicio))
-  );
+  celdas = computed<CeldaCalendario[]>(() => {
+    const mes = this.mesVisible();
+    const primerDia = new Date(mes.getFullYear(), mes.getMonth(), 1);
+    const diaSemanaPrimero = (primerDia.getDay() + 6) % 7; // lunes = 0
+    const inicioGrilla = new Date(primerDia);
+    inicioGrilla.setDate(primerDia.getDate() - diaSemanaPrimero);
 
-  entrevistasDelDia = computed(() =>
-    this.postulaciones()
-      .filter((p) => p.fecha_entrevista && toFechaInput(parseUtc(p.fecha_entrevista)) === this.fechaSeleccionada())
-      .sort((a, b) => a.fecha_entrevista!.localeCompare(b.fecha_entrevista!))
-  );
+    const entrevistasPorFecha = new Map<string, Postulacion[]>();
+    for (const p of this.postulaciones()) {
+      if (!p.fecha_entrevista) continue;
+      const key = toFechaInput(parseUtc(p.fecha_entrevista));
+      const lista = entrevistasPorFecha.get(key) ?? [];
+      lista.push(p);
+      entrevistasPorFecha.set(key, lista);
+    }
 
-  diasDeLaSemana = computed(() => {
-    const inicio = inicioDeSemana(new Date(`${this.fechaSeleccionada()}T00:00:00`));
-    return Array.from({ length: 7 }, (_, i) => {
-      const dia = new Date(inicio);
-      dia.setDate(inicio.getDate() + i);
-      const fechaStr = toFechaInput(dia);
-      return {
-        fecha: fechaStr,
-        etiqueta: dia.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
-        citas: this.citas()
-          .filter((cita) => toFechaInput(parseUtc(cita.inicio)) === fechaStr)
-          .sort((a, b) => a.inicio.localeCompare(b.inicio)),
-        entrevistas: this.postulaciones()
-          .filter((p) => p.fecha_entrevista && toFechaInput(parseUtc(p.fecha_entrevista)) === fechaStr)
-          .sort((a, b) => a.fecha_entrevista!.localeCompare(b.fecha_entrevista!)),
-      };
+    const hoyKey = toFechaInput(new Date());
+    const seleccionActual = this.fechaSeleccionada();
+    return Array.from({ length: 42 }, (_, i) => {
+      const fecha = new Date(inicioGrilla);
+      fecha.setDate(inicioGrilla.getDate() + i);
+      const fechaKey = toFechaInput(fecha);
+      const otroMes = fecha.getMonth() !== mes.getMonth();
+      const esHoy = fechaKey === hoyKey;
+      const entrevistas = (entrevistasPorFecha.get(fechaKey) ?? []).sort((a, b) =>
+        a.fecha_entrevista!.localeCompare(b.fecha_entrevista!)
+      );
+      const chipTexto =
+        entrevistas.length === 0
+          ? ''
+          : entrevistas.length === 1
+          ? `${this.hora(entrevistas[0].fecha_entrevista!)} ${entrevistas[0].empresa}`
+          : `${this.hora(entrevistas[0].fecha_entrevista!)} ${entrevistas[0].empresa} +${entrevistas.length - 1}`;
+      const clase = [
+        otroMes ? 'otro-mes' : '',
+        esHoy ? 'hoy' : '',
+        entrevistas.length > 0 ? 'con-entrevista' : '',
+        fechaKey === seleccionActual ? 'selected' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      return { fecha, fechaKey, numero: fecha.getDate(), otroMes, hoy: esHoy, entrevistas, chipTexto, clase };
     });
   });
 
-  constructor(
-    private citasService: CitasService,
-    private clientesService: ClientesService,
-    private postulacionesService: PostulacionesService
-  ) {}
+  celdaSeleccionada = computed<CeldaCalendario | undefined>(() =>
+    this.celdas().find((c) => c.fechaKey === this.fechaSeleccionada())
+  );
+
+  seleccionLabel = computed(() => {
+    const celda = this.celdaSeleccionada();
+    if (!celda) return '';
+    const etiquetaDia = `${DIAS_SEMANA[(celda.fecha.getDay() + 6) % 7]} ${celda.numero} de ${MESES[celda.fecha.getMonth()]}`;
+    if (celda.entrevistas.length === 1) {
+      return `${etiquetaDia} · entrevista con ${celda.entrevistas[0].empresa}`;
+    }
+    if (celda.entrevistas.length > 1) {
+      return `${etiquetaDia} · ${celda.entrevistas.length} entrevistas`;
+    }
+    return etiquetaDia;
+  });
+
+  proximaEntrevistaChip = computed(() => {
+    const ahora = new Date();
+    const proxima = this.postulaciones()
+      .filter((p) => p.fecha_entrevista && parseUtc(p.fecha_entrevista) >= ahora)
+      .sort((a, b) => a.fecha_entrevista!.localeCompare(b.fecha_entrevista!))[0];
+    if (!proxima) return null;
+    const fecha = parseUtc(proxima.fecha_entrevista!);
+    const esHoy = toFechaInput(fecha) === toFechaInput(ahora);
+    const hora = fecha.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+    return {
+      empresa: proxima.empresa,
+      cuando: esHoy ? `Hoy · ${hora}` : `${DIAS_SEMANA[(fecha.getDay() + 6) % 7]} ${fecha.getDate()} · ${hora}`,
+    };
+  });
+
+  constructor(private postulacionesService: PostulacionesService) {}
 
   ngOnInit(): void {
-    this.cargarClientes();
-    this.cargarCitas();
-    this.cargarPostulaciones();
-  }
-
-  cargarClientes(): void {
-    this.clientesService.listar().subscribe((clientes) => this.clientes.set(clientes));
-  }
-
-  cargarCitas(): void {
-    this.citasService.listar().subscribe((citas) => this.citas.set(citas));
-  }
-
-  cargarPostulaciones(): void {
     this.postulacionesService.listar().subscribe((postulaciones) => this.postulaciones.set(postulaciones));
+    this.cargarNota();
   }
 
-  nombreCliente(clienteId: number): string {
-    return this.clientes().find((c) => c.id === clienteId)?.nombre ?? `Cliente #${clienteId}`;
+  seleccionarCelda(fechaKey: string): void {
+    this.fechaSeleccionada.set(fechaKey);
+    this.cargarNota();
+  }
+
+  cambiarMes(delta: number): void {
+    const actual = this.mesVisible();
+    this.mesVisible.set(new Date(actual.getFullYear(), actual.getMonth() + delta, 1));
+  }
+
+  onNotaChange(valor: string): void {
+    this.nota.set(valor);
+    localStorage.setItem(NOTA_PREFIJO + this.fechaSeleccionada(), valor);
   }
 
   hora(iso: string): string {
-    return parseUtc(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    return parseUtc(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   }
 
-  irADia(fecha: string): void {
-    this.fechaSeleccionada.set(fecha);
-    this.vista.set('dia');
-  }
-
-  cambiarDia(delta: number): void {
-    const actual = new Date(`${this.fechaSeleccionada()}T00:00:00`);
-    actual.setDate(actual.getDate() + delta);
-    this.fechaSeleccionada.set(toFechaInput(actual));
-  }
-
-  editar(cita: Cita): void {
-    this.editandoId.set(cita.id);
-    this.clienteId = String(cita.cliente_id);
-    const inicio = parseUtc(cita.inicio);
-    const fin = parseUtc(cita.fin);
-    this.fecha = toFechaInput(inicio);
-    this.horaInicio = inicio.toTimeString().slice(0, 5);
-    this.horaFin = fin.toTimeString().slice(0, 5);
-    this.notas = cita.notas ?? '';
-  }
-
-  cancelarEdicion(): void {
-    this.editandoId.set(null);
-    this.clienteId = '';
-    this.notas = '';
-    this.horaInicio = '09:00';
-    this.horaFin = '09:30';
-    this.fecha = this.fechaSeleccionada();
-  }
-
-  guardar(): void {
-    this.error.set(null);
-    if (!this.clienteId) {
-      this.error.set('Elegi un cliente.');
-      return;
-    }
-    const datos = {
-      cliente_id: Number(this.clienteId),
-      inicio: localInputToUtcIso(this.fecha, this.horaInicio),
-      fin: localInputToUtcIso(this.fecha, this.horaFin),
-      notas: this.notas || undefined,
-    };
-    const id = this.editandoId();
-    const accion = id ? this.citasService.editar(id, datos) : this.citasService.crear(datos);
-
-    accion.subscribe({
-      next: () => {
-        this.cancelarEdicion();
-        this.cargarCitas();
-      },
-      error: (err) => this.error.set(err.error?.error || 'No se pudo guardar la cita.'),
-    });
-  }
-
-  cancelarCita(cita: Cita): void {
-    if (!confirm('¿Cancelar esta cita?')) return;
-    this.citasService
-      .editar(cita.id, {
-        cliente_id: cita.cliente_id,
-        inicio: cita.inicio,
-        fin: cita.fin,
-        estado: 'cancelada',
-        notas: cita.notas ?? undefined,
-      })
-      .subscribe(() => this.cargarCitas());
-  }
-
-  borrar(cita: Cita): void {
-    if (!confirm('¿Borrar esta cita?')) return;
-    this.citasService.borrar(cita.id).subscribe(() => this.cargarCitas());
+  private cargarNota(): void {
+    this.nota.set(localStorage.getItem(NOTA_PREFIJO + this.fechaSeleccionada()) ?? '');
   }
 }

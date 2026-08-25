@@ -1,116 +1,70 @@
-<h1>Agenda</h1>
-
-<div class="controles">
-  <div class="tabs">
-    <button type="button" [class.activo]="vista() === 'dia'" (click)="vista.set('dia')">Dia</button>
-    <button type="button" [class.activo]="vista() === 'semana'" (click)="vista.set('semana')">Semana</button>
+<div class="agenda-hero">
+  <div>
+    <h1 class="page-title display">Agenda</h1>
   </div>
-
-  @if (vista() === 'dia') {
-    <div class="nav-dia">
-      <button type="button" class="secundario" (click)="cambiarDia(-1)">◀</button>
-      <input type="date" [ngModel]="fechaSeleccionada()" (ngModelChange)="fechaSeleccionada.set($event)" />
-      <button type="button" class="secundario" (click)="cambiarDia(1)">▶</button>
+  @if (proximaEntrevistaChip()) {
+    <div class="hero-next-chip">
+      <span class="pip"></span>
+      Próxima entrevista: <strong>{{ proximaEntrevistaChip()!.empresa }}</strong> · {{ proximaEntrevistaChip()!.cuando }}
     </div>
   }
 </div>
 
-<form class="form-cita" (ngSubmit)="guardar()">
-  <select name="cliente" [(ngModel)]="clienteId" required>
-    <option value="" disabled>Cliente</option>
-    @for (cliente of clientes(); track cliente.id) {
-      <option [value]="cliente.id">{{ cliente.nombre }}</option>
-    }
-  </select>
-  <input type="date" name="fecha" [(ngModel)]="fecha" required />
-  <input type="time" name="horaInicio" [(ngModel)]="horaInicio" required />
-  <input type="time" name="horaFin" [(ngModel)]="horaFin" required />
-  <input type="text" name="notas" placeholder="Notas (opcional)" [(ngModel)]="notas" />
-  <button type="submit">{{ editandoId() ? 'Guardar cambios' : 'Agregar cita' }}</button>
-  @if (editandoId()) {
-    <button type="button" class="secundario" (click)="cancelarEdicion()">Cancelar</button>
-  }
-</form>
-
-@if (error()) {
-  <p class="mensaje">{{ error() }}</p>
-}
-
-@if (vista() === 'dia') {
-  @if (entrevistasDelDia().length > 0) {
-    <table class="tabla tabla-entrevistas">
-      <thead>
-        <tr>
-          <th>Hora</th>
-          <th>Entrevista</th>
-          <th>Estado</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (entrevista of entrevistasDelDia(); track entrevista.id) {
-          <tr>
-            <td>{{ hora(entrevista.fecha_entrevista!) }}</td>
-            <td>{{ entrevista.empresa }} - {{ entrevista.puesto }}</td>
-            <td>{{ entrevista.estado }}</td>
-            <td class="acciones">
-              <a routerLink="/postulaciones" class="secundario">Ver en Postulaciones</a>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-  <table class="tabla">
-    <thead>
-      <tr>
-        <th>Hora</th>
-        <th>Cliente</th>
-        <th>Estado</th>
-        <th>Notas</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (cita of citasDelDia(); track cita.id) {
-        <tr [class.cancelada]="cita.estado === 'cancelada'">
-          <td>{{ hora(cita.inicio) }} - {{ hora(cita.fin) }}</td>
-          <td>{{ nombreCliente(cita.cliente_id) }}</td>
-          <td>{{ cita.estado }}</td>
-          <td>{{ cita.notas || '-' }}</td>
-          <td class="acciones">
-            <button type="button" class="secundario" (click)="editar(cita)">Editar</button>
-            @if (cita.estado !== 'cancelada') {
-              <button type="button" class="secundario" (click)="cancelarCita(cita)">Cancelar</button>
-            }
-            <button type="button" class="secundario" (click)="borrar(cita)">Borrar</button>
-          </td>
-        </tr>
-      } @empty {
-        <tr>
-          <td colspan="5">No hay citas este dia.</td>
-        </tr>
+<div class="agenda-layout">
+  <div class="card calendar-card">
+    <svg class="calendar-sparkle s1" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    <svg class="calendar-sparkle s2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    <div class="calendar-head">
+      <div class="calendar-month-group">
+        <button type="button" class="month-nav" (click)="cambiarMes(-1)" aria-label="Mes anterior">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <h2 class="calendar-month display">{{ tituloMes() }}</h2>
+        <button type="button" class="month-nav" (click)="cambiarMes(1)" aria-label="Mes siguiente">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <span class="calendar-legend"><span class="dot"></span>Día con entrevista</span>
+    </div>
+    <div class="weekday-row">
+      <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+    </div>
+    <div class="calendar-grid">
+      @for (c of celdas(); track c.fechaKey) {
+        <button type="button" class="day-cell {{ c.clase }}" (click)="seleccionarCelda(c.fechaKey)">
+          <span class="num">{{ c.numero }}</span>
+          @if (c.entrevistas.length > 0) {
+            <span class="day-chip">{{ c.chipTexto }}</span>
+          }
+        </button>
       }
-    </tbody>
-  </table>
-} @else {
-  <div class="semana">
-    @for (dia of diasDeLaSemana(); track dia.fecha) {
-      <div class="columna-dia">
-        <button type="button" class="encabezado-dia" (click)="irADia(dia.fecha)">{{ dia.etiqueta }}</button>
-        @for (cita of dia.citas; track cita.id) {
-          <button type="button" class="cita-mini" [class.cancelada]="cita.estado === 'cancelada'" (click)="irADia(dia.fecha)">
-            {{ hora(cita.inicio) }} {{ nombreCliente(cita.cliente_id) }}
-          </button>
-        }
-        @for (entrevista of dia.entrevistas; track entrevista.id) {
-          <button type="button" class="entrevista-mini" (click)="irADia(dia.fecha)">
-            {{ hora(entrevista.fecha_entrevista!) }} {{ entrevista.empresa }}
-          </button>
-        }
-        @if (dia.citas.length === 0 && dia.entrevistas.length === 0) {
-          <span class="sin-citas">-</span>
-        }
+    </div>
+  </div>
+
+  <div class="card notes-panel">
+    <div class="notes-tape"></div>
+    <h2 class="notes-title display">Notas</h2>
+    <p class="notes-sub">{{ seleccionLabel() }}</p>
+    <div class="notes-lines">
+      <textarea
+        placeholder="Escribí lo que necesites recordar de este día…"
+        [ngModel]="nota()"
+        (ngModelChange)="onNotaChange($event)"
+      ></textarea>
+    </div>
+  </div>
+</div>
+
+@if (celdaSeleccionada() && celdaSeleccionada()!.entrevistas.length > 0) {
+  <div class="card entrevistas-dia">
+    <h2 class="entrevistas-dia-title display">Entrevistas de este día</h2>
+    @for (entrevista of celdaSeleccionada()!.entrevistas; track entrevista.id) {
+      <div class="entrevista-row">
+        <span class="entrevista-hora">{{ hora(entrevista.fecha_entrevista!) }}</span>
+        <span class="entrevista-info">
+          <strong>{{ entrevista.empresa }}</strong> — {{ entrevista.puesto }}
+        </span>
+        <a routerLink="/postulaciones" class="entrevista-link">Ver en Postulaciones →</a>
       </div>
     }
   </div>

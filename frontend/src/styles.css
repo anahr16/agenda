@@ -31,6 +31,27 @@ body {
   background: var(--bg);
 }
 
+.card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 20px 45px -28px rgba(107, 50, 176, 0.35), 0 2px 8px -4px rgba(107, 50, 176, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.page-title {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.page-sub {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  margin: 0.3rem 0 0;
+}
+
 h1 {
   font-size: 1.4rem;
   margin: 0 0 1rem;

@@ -2,10 +2,33 @@
   box-sizing: border-box;
 }
 
+:root {
+  --ink: oklch(23% 0.032 325);
+  --ink-soft: oklch(46% 0.035 325);
+  --ink-faint: oklch(64% 0.025 325);
+  --bg: oklch(97.3% 0.014 325);
+  --surface: oklch(99.2% 0.006 325);
+  --surface-tint: oklch(96% 0.025 325);
+  --border: oklch(90% 0.022 325);
+  --accent-purple: #8b4fd6;
+  --accent-purple-deep: #6b32b0;
+  --accent-pink: #ef8fb0;
+  --accent-pink-deep: #d9668f;
+  --gold: oklch(78% 0.13 80);
+  --gold-deep: oklch(60% 0.13 70);
+  --coral-deep: oklch(54% 0.15 25);
+}
+
+.display {
+  font-family: 'Bodoni Moda', 'Playfair Display', Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  color: #1f2937;
+  font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
 }
 
 h1 {

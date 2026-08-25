@@ -26,13 +26,20 @@ function limpiar(valor) {
   return valor ? valor.replace(/\s+/g, ' ').trim() : valor;
 }
 
+// Computrabajo dice literalmente "la empresa" cuando el aviso es anonimo
+// (empleador no revelado) -- se deja mas claro que no es un dato faltante.
+function limpiarEmpresa(valor) {
+  const limpio = limpiar(valor);
+  return limpio && limpio.toLowerCase() === 'la empresa' ? 'Empresa confidencial' : limpio;
+}
+
 const PARSERS = [
   {
     portal: 'Chiletrabajos',
     tipo: 'nueva_postulacion',
     remitente: /@chiletrabajos\.cl$/i,
     extraer(asunto, texto) {
-      const empresa = (texto.match(/Postulaci[oó]n Enviada a ([\s\S]+?)\.(?=\s|$)/i) || [])[1];
+      const empresa = (texto.match(/Postulaci[oó]n Enviada a ([\s\S]+?)(?:\.(?=\s|$)|\s+Estimado)/i) || [])[1];
       const puesto = (texto.match(/Tu Postulaci[oó]n a ([\s\S]+?) fue enviada correctamente/i) || [])[1];
       const link = (texto.match(/https?:\/\/www\.chiletrabajos\.cl\/trabajo\/\d+/i) || [])[0];
       if (!empresa || !puesto) return null;
@@ -51,6 +58,31 @@ const PARSERS = [
     },
   },
   {
+    portal: 'LinkedIn',
+    tipo: 'nueva_postulacion',
+    remitente: /@linkedin\.com$/i,
+    extraer(asunto, texto) {
+      // Cuerpo: "Se ha enviado tu solicitud a {empresa}.\n\n{puesto}\n{empresa}\n..."
+      const match = texto.match(/Se ha enviado tu solicitud a ([\s\S]+?)\.\n\n([\s\S]+?)\n/i);
+      if (!match) return null;
+      const link = (texto.match(/Ver anuncio de empleo:\s*(\S+)/i) || [])[1];
+      return { empresa: limpiar(match[1]), puesto: limpiar(match[2]), link };
+    },
+  },
+  {
+    portal: 'Trabajando.cl',
+    tipo: 'nueva_postulacion',
+    remitente: /@trabajando\.com$/i,
+    extraer(asunto, texto) {
+      // El mail no menciona la empresa (solo puesto + link), y la pagina
+      // del aviso es una SPA que no se puede scrapear sin navegador
+      // headless -- se usa un placeholder para que igual quede cargada.
+      const match = texto.match(/Postulaste correctamente a la oferta de empleo:\s*\n\n([\s\S]+?)\s*\(\s*(https?:\/\/\S+)\s*\)/i);
+      if (!match) return null;
+      return { empresa: 'Trabajando.cl (completar)', puesto: limpiar(match[1]), link: match[2] };
+    },
+  },
+  {
     portal: 'Computrabajo',
     tipo: 'nueva_postulacion',
     remitente: /@computrabajo\.com$/i,
@@ -58,7 +90,7 @@ const PARSERS = [
       const puesto = (asunto.match(/Seguimiento de tu postulaci[oó]n para el puesto ([\s\S]+)/i) || [])[1];
       const empresa = (texto.match(/Tu CV ya est[aá] en manos de ([\s\S]+?)\.(?=\s|$)/i) || [])[1];
       if (!empresa || !puesto) return null;
-      return { empresa: limpiar(empresa), puesto: limpiar(puesto) };
+      return { empresa: limpiarEmpresa(empresa), puesto: limpiar(puesto) };
     },
   },
   {

@@ -6,7 +6,7 @@ const db = require('./db');
 const PARSERS = require('./emailParsers');
 const { obtenerDescripcion } = require('./jobPageScraper');
 
-const DIAS_ATRAS = 3;
+const DIAS_ATRAS = Number(process.env.EMAIL_SYNC_DIAS_ATRAS || 3);
 const ESTADOS_TERMINALES = ['rechazada', 'oferta'];
 
 const OPCIONES_HTML_A_TEXTO = {

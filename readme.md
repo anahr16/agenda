@@ -36,8 +36,9 @@ fotógrafos, etc.).
 - [x] Módulo de postulaciones de trabajo (CRUD + panel de estadísticas +
       entrevistas en la Agenda) — ver sección propia más abajo
 - [x] Detección automática de postulaciones y cambios de estado vía email
-      (IMAP, Chiletrabajos y Computrabajo por ahora) — falta "entrevista"
-      y el descarte propio de Chiletrabajos, pendiente de ejemplos reales
+      (IMAP; Chiletrabajos, Computrabajo, LinkedIn y Trabajando.cl) — falta
+      "entrevista" y el descarte propio de Chiletrabajos, pendiente de
+      ejemplos reales
 - [x] Descripción del aviso por scraping (solo Chiletrabajos, el único
       portal cuyo mail trae el link real) + recordatorio de seguimiento
       por Telegram a los 2 días sin novedades
@@ -70,6 +71,7 @@ la variable de entorno `PORT`, ej: `PORT=5000 npm run dev`.
 | `IMAP_HOST` | Servidor IMAP para la sincronización de postulaciones por email (ver sección de postulaciones). Default `imap.gmail.com`. |
 | `IMAP_USER` | Casilla de Gmail a leer. Vacío = sincronización desactivada. |
 | `IMAP_APP_PASSWORD` | Contraseña de aplicación de esa casilla (no la contraseña normal de la cuenta). |
+| `EMAIL_SYNC_DIAS_ATRAS` | Cuántos días hacia atrás revisa el cron de sincronización de postulaciones en cada corrida. Default `3`. |
 | `TELEGRAM_BOT_TOKEN` | Token del bot de Telegram para los recordatorios de seguimiento (ver esa sección). Vacío = modo simulado. |
 | `TELEGRAM_CHAT_ID` | Chat o canal de Telegram al que se mandan los recordatorios. |
 | `SEGUIMIENTO_POSTULACIONES_DIAS` | Días sin novedades antes de mandar el recordatorio de seguimiento. Default `2`. |
@@ -196,8 +198,14 @@ casilla de correo por IMAP y se detectan los mails de confirmación de
 postulación que ya llegan solos.
 
 **Cómo funciona:** un cron (`node-cron`, corre cada 10 minutos) revisa los
-mails de los últimos 3 días de la casilla configurada (`IMAP_USER` /
-`IMAP_APP_PASSWORD` en `.env`). Cada mail se compara contra las reglas de
+mails de los últimos `EMAIL_SYNC_DIAS_ATRAS` días (default `3`) de la
+casilla configurada (`IMAP_USER` / `IMAP_APP_PASSWORD` en `.env`). Para
+traer historial viejo (ej. la primera vez que se activa, o después de
+agregar un portal nuevo) se puede correr una sincronización puntual con
+una ventana más amplia: `EMAIL_SYNC_DIAS_ATRAS=30 node -e
+"require('dotenv').config(); require('net').setDefaultAutoSelectFamily(false);
+require('./emailSync').sincronizarEmails()"` desde `backend/`. Cada mail
+se compara contra las reglas de
 `backend/emailParsers.js` (varias por portal, matcheando por remitente),
 que son de dos tipos:
 
@@ -218,15 +226,38 @@ texto (`html-to-text`) antes de aplicar las reglas. Si `IMAP_USER`/
 `IMAP_APP_PASSWORD` están vacíos, la sincronización queda desactivada (se
 loguea un aviso una sola vez).
 
-**Portales soportados hoy:** Chiletrabajos (`chiletrabajos.cl`) y
-Computrabajo (`computrabajo.com`), cada uno con su regla de
-`nueva_postulacion` y de `cambio_estado`. Para sumar un portal nuevo, o un
-cambio de estado que todavía no esté cubierto (ej. entrevista, o el "te
+**Portales soportados hoy:** Chiletrabajos (`chiletrabajos.cl`),
+Computrabajo (`computrabajo.com`), LinkedIn (`linkedin.com`) y
+Trabajando.cl (`trabajando.com`). Para sumar un portal nuevo, o un cambio
+de estado que todavía no esté cubierto (ej. entrevista, o el "te
 descartaron" de Chiletrabajos), hace falta un mail de ejemplo real
 (remitente + asunto + cuerpo) para escribir la regla en `emailParsers.js`.
 
+**Trabajando.cl es un caso especial:** su mail de confirmación no
+menciona la empresa (solo el puesto y el link al aviso), y la página del
+aviso es una SPA en React que no se puede scrapear sin un navegador
+headless — se decidió no sumar esa complejidad por 4-5 avisos. Las
+postulaciones de este portal se cargan con `empresa: "Trabajando.cl
+(completar)"` como placeholder; hay que completar el nombre real a mano
+desde la pantalla de Postulaciones.
+
+**LinkedIn (`jobs-noreply@linkedin.com`) trae link al aviso** pero **no
+se scrapea la descripción**: a diferencia de Chiletrabajos, LinkedIn
+exige login para ver el aviso completo, así que `jobPageScraper.js` no
+tiene regla para ese dominio.
+
 **Cosas no obvias que aparecieron al probar con la casilla real:**
 
+- **Computrabajo dice literalmente "la empresa"** en avisos con empleador
+  anónimo/confidencial (`Tu CV ya está en manos de la empresa.`) — no es
+  un fallo del parser, es el dato real; se normaliza a "Empresa
+  confidencial" para que no parezca un error de extracción.
+- **La plantilla de "postulación enviada" de Chiletrabajos no es
+  consistente**: a veces el nombre de la empresa termina con un punto
+  antes de "Estimado/a" (`Highdare SPA. Estimado/a`) y a veces no
+  (`Vilzo Consultoría Estimado/a`) — el regex corta en el primer punto
+  seguido de espacio **o** en la palabra "Estimado", lo que aparezca
+  primero.
 - **Computrabajo no menciona la empresa** en sus mails de cambio de
   estado, solo el puesto — por eso ese parser no devuelve `empresa` y se
   busca por puesto solamente.
@@ -246,6 +277,14 @@ descartaron" de Chiletrabajos), hace falta un mail de ejemplo real
   que manda el portal — no es algo que se pueda arreglar del lado del
   parser sin heurísticas frágiles, así que puede haber postulaciones con
   el puesto con caracteres raros ocasionalmente.
+- **Los ATS propios de cada empresa (ej. pandape.com) no están cubiertos**:
+  cuando una empresa gestiona el proceso en su propio sistema (mensajes,
+  tests, revisión de antecedentes) esos mails no matchean ningún parser
+  porque no vienen de un portal de empleo, vienen de la herramienta
+  interna de esa empresa. La postulación se crea igual desde el mail de
+  confirmación del portal original, pero el estado no se actualiza solo a
+  partir de ahí — hay que revisarlo y actualizarlo a mano si la empresa
+  avisa novedades por ese canal.
 
 **Configurar la contraseña de aplicación de Gmail:**
 

@@ -32,7 +32,7 @@ export class PushService {
 
     onMessage(messaging, (payload) => {
       const { title, body } = payload.notification || {};
-      new Notification(title || 'Turnero', { body: body || '' });
+      new Notification(title || 'Agenda Inteligente', { body: body || '' });
     });
 
     const token = await getToken(messaging, {

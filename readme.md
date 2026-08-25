@@ -1,4 +1,4 @@
-# Turnero
+# Agenda Inteligente
 
 Agenda de citas con recordatorios automáticos para profesionales que cobran
 por su tiempo (consultores, terapeutas, tatuadores, manicuristas,
@@ -155,7 +155,7 @@ por si vuelve a cambiar la forma de inicializar.
 **Troubleshooting — "el push no llega":**
 - El backend puede reportar el envío como exitoso (Firebase lo acepta) sin
   que el navegador muestre nada. Antes de sospechar de Firebase, revisar:
-- Si la pestaña de Turnero está en primer plano (enfocada), el aviso lo
+- Si la pestaña de Agenda Inteligente está en primer plano (enfocada), el aviso lo
   maneja `onMessage` en `frontend/src/app/core/push.service.ts` (muestra un
   `new Notification(...)` manual). Si está en segundo plano, lo maneja
   `onBackgroundMessage` en `frontend/public/firebase-messaging-sw.js`.

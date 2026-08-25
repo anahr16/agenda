@@ -33,7 +33,7 @@ app.use('/citas', requireAuth, citasRouter);
 app.use('/postulaciones', requireAuth, postulacionesRouter);
 
 app.listen(PORT, () => {
-  console.log(`Turnero backend escuchando en http://localhost:${PORT}`);
+  console.log(`Agenda Inteligente backend escuchando en http://localhost:${PORT}`);
   iniciarRecordatorios();
   iniciarSincronizacionEmails();
   iniciarRecordatoriosPostulaciones();

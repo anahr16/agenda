@@ -15,7 +15,7 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification || {};
-  self.registration.showNotification(title || 'Turnero', {
+  self.registration.showNotification(title || 'Agenda Inteligente', {
     body: body || '',
   });
 });

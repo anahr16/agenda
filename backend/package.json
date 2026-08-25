@@ -1,7 +1,7 @@
 {
   "name": "turnero-backend",
   "version": "1.0.0",
-  "description": "Backend de Turnero: agenda de citas con recordatorios automaticos",
+  "description": "Backend de Agenda Inteligente: agenda de citas con recordatorios automaticos",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

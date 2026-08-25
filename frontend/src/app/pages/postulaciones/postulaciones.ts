@@ -16,6 +16,15 @@ const ETIQUETAS_ESTADO: Record<EstadoPostulacion, string> = {
   oferta: 'Oferta',
 };
 
+// Colores validados (dataviz: lightness/chroma/CVD/contraste ok en este orden de adyacencia).
+const ESTADO_COLOR: Record<EstadoPostulacion, string> = {
+  enviada: '#2a78d6',
+  vista: '#4a3aa7',
+  entrevista: '#eda100',
+  rechazada: '#d03b3b',
+  oferta: '#1baf7a',
+};
+
 function toFechaInput(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -54,7 +63,10 @@ export class Postulaciones implements OnInit {
   postulaciones = signal<Postulacion[]>([]);
   stats = signal<PostulacionesStats | null>(null);
   editandoId = signal<number | null>(null);
+  expandidoId = signal<number | null>(null);
+  mostrarFormulario = signal(false);
   filtroEstado = signal<string>('');
+  busqueda = signal<string>('');
   error = signal<string | null>(null);
 
   empresa = '';
@@ -69,18 +81,36 @@ export class Postulaciones implements OnInit {
 
   postulacionesFiltradas = computed(() => {
     const filtro = this.filtroEstado();
-    const lista = this.postulaciones();
-    return filtro ? lista.filter((p) => p.estado === filtro) : lista;
+    const texto = this.busqueda().toLowerCase().trim();
+    let lista = this.postulaciones();
+    if (filtro) lista = lista.filter((p) => p.estado === filtro);
+    if (texto) {
+      lista = lista.filter(
+        (p) => p.empresa.toLowerCase().includes(texto) || p.puesto.toLowerCase().includes(texto)
+      );
+    }
+    return lista;
   });
 
-  resumenEstados = computed(() => {
+  barras = computed(() => {
     const s = this.stats();
     if (!s) return [];
+    const total = s.total;
     return ESTADOS_POSTULACION.map((estado) => {
       const n = s.porEstado.find((e) => e.estado === estado)?.n ?? 0;
-      const pct = s.total ? Math.round((n / s.total) * 100) : 0;
-      return { estado, etiqueta: ETIQUETAS_ESTADO[estado], n, pct };
+      const pct = total ? Math.round((n / total) * 100) : 0;
+      return { estado, etiqueta: ETIQUETAS_ESTADO[estado], n, pct, color: ESTADO_COLOR[estado] };
     });
+  });
+
+  filtros = computed(() => {
+    const activo = this.filtroEstado();
+    return ['' as const, ...ESTADOS_POSTULACION].map((e) => ({
+      valor: e,
+      etiqueta: e ? ETIQUETAS_ESTADO[e] : 'Todas',
+      activo: activo === e,
+      color: e ? ESTADO_COLOR[e] : '#8b4fd6',
+    }));
   });
 
   constructor(private postulacionesService: PostulacionesService) {}
@@ -93,19 +123,32 @@ export class Postulaciones implements OnInit {
     return ETIQUETAS_ESTADO[estado as EstadoPostulacion] ?? estado;
   }
 
+  inicial(empresa: string): string {
+    return empresa.charAt(0).toUpperCase();
+  }
+
   formatoEntrevista(iso: string | null): string {
     if (!iso) return '-';
     return parseUtc(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
-  resumenDescripcion(descripcion: string | null): string {
-    if (!descripcion) return '-';
-    return descripcion.length > 140 ? `${descripcion.slice(0, 140)}…` : descripcion;
+  formatoFecha(fecha: string): string {
+    const d = new Date(`${fecha}T00:00:00`);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
   }
 
   cargar(): void {
     this.postulacionesService.listar().subscribe((postulaciones) => this.postulaciones.set(postulaciones));
     this.postulacionesService.stats().subscribe((stats) => this.stats.set(stats));
+  }
+
+  toggleExpandido(id: number): void {
+    this.expandidoId.set(this.expandidoId() === id ? null : id);
+  }
+
+  abrirNueva(): void {
+    if (this.editandoId()) this.cancelarEdicion();
+    this.mostrarFormulario.set(true);
   }
 
   editar(postulacion: Postulacion): void {
@@ -119,10 +162,12 @@ export class Postulaciones implements OnInit {
     this.estado = postulacion.estado;
     this.fecha_entrevista = postulacion.fecha_entrevista ? utcIsoToDatetimeLocalInput(postulacion.fecha_entrevista) : '';
     this.notas = postulacion.notas ?? '';
+    this.mostrarFormulario.set(true);
   }
 
   cancelarEdicion(): void {
     this.editandoId.set(null);
+    this.mostrarFormulario.set(false);
     this.empresa = '';
     this.puesto = '';
     this.portal = '';

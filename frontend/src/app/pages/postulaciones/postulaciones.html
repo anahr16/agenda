@@ -1,93 +1,147 @@
-<h1>Postulaciones</h1>
+<div class="page-head">
+  <div>
+    <h1 class="page-title display">Postulaciones</h1>
+    <p class="page-sub">Seguimiento de tu búsqueda laboral</p>
+  </div>
+  @if (!mostrarFormulario()) {
+    <button type="button" class="btn-add" (click)="abrirNueva()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Nueva postulación
+    </button>
+  }
+</div>
+
+@if (mostrarFormulario()) {
+  <form class="card postulacion-form" (ngSubmit)="guardar()">
+    <div class="campo">
+      <label for="empresa">Empresa</label>
+      <input id="empresa" type="text" name="empresa" [(ngModel)]="empresa" required />
+    </div>
+    <div class="campo">
+      <label for="puesto">Puesto</label>
+      <input id="puesto" type="text" name="puesto" [(ngModel)]="puesto" required />
+    </div>
+    <div class="campo">
+      <label for="portal">Portal</label>
+      <input id="portal" type="text" name="portal" placeholder="LinkedIn, Computrabajo…" [(ngModel)]="portal" />
+    </div>
+    <div class="campo">
+      <label for="fecha_postulacion">Fecha de postulación</label>
+      <input id="fecha_postulacion" type="date" name="fecha_postulacion" [(ngModel)]="fecha_postulacion" required />
+    </div>
+    <div class="campo">
+      <label for="estado">Estado</label>
+      <select id="estado" name="estado" [(ngModel)]="estado">
+        @for (e of estados; track e) {
+          <option [value]="e">{{ etiqueta(e) }}</option>
+        }
+      </select>
+    </div>
+    <div class="campo">
+      <label for="fecha_entrevista">Entrevista (opcional)</label>
+      <input id="fecha_entrevista" type="datetime-local" name="fecha_entrevista" [(ngModel)]="fecha_entrevista" />
+    </div>
+    <div class="campo">
+      <label for="link">Link (opcional)</label>
+      <input id="link" type="url" name="link" [(ngModel)]="link" />
+    </div>
+    <div class="campo campo-ancho">
+      <label for="descripcion">De qué trata (opcional)</label>
+      <input id="descripcion" type="text" name="descripcion" [(ngModel)]="descripcion" />
+    </div>
+    <div class="campo campo-ancho">
+      <label for="notas">Notas (opcional)</label>
+      <input id="notas" type="text" name="notas" [(ngModel)]="notas" />
+    </div>
+
+    @if (error()) {
+      <p class="mensaje">{{ error() }}</p>
+    }
+
+    <div class="form-acciones">
+      <button type="submit" class="btn-add">{{ editandoId() ? 'Guardar cambios' : 'Agregar postulación' }}</button>
+      <button type="button" class="btn-cancelar" (click)="cancelarEdicion()">Cancelar</button>
+    </div>
+  </form>
+}
 
 @if (stats()) {
-  <div class="resumen">
-    <div class="resumen-total">
-      <span class="numero">{{ stats()!.total }}</span>
-      <span>postulaciones</span>
+  <div class="card stats-card">
+    <div class="stats-hero">
+      <div class="num">{{ stats()!.total }}</div>
+      <div class="lbl">postulaciones</div>
     </div>
-    @for (item of resumenEstados(); track item.estado) {
-      <div class="resumen-item">
-        <span class="numero">{{ item.n }}</span>
-        <span>{{ item.etiqueta }} ({{ item.pct }}%)</span>
-      </div>
-    }
+    <div class="stats-bars">
+      @for (b of barras(); track b.estado) {
+        <div class="stat-bar-row" [title]="b.n + ' de ' + stats()!.total + ' postulaciones · ' + b.pct + '%'">
+          <span class="stat-bar-label">{{ b.etiqueta }}</span>
+          <span class="stat-bar-track">
+            <span class="stat-bar-fill" [style.width.%]="b.pct" [style.background]="b.color"></span>
+          </span>
+          <span class="stat-bar-value">{{ b.n }} · {{ b.pct }}%</span>
+        </div>
+      }
+    </div>
   </div>
 }
 
-<form class="form-postulacion" (ngSubmit)="guardar()">
-  <input type="text" name="empresa" placeholder="Empresa" [(ngModel)]="empresa" required />
-  <input type="text" name="puesto" placeholder="Puesto" [(ngModel)]="puesto" required />
-  <input type="text" name="portal" placeholder="Portal (LinkedIn, Bumeran, ...)" [(ngModel)]="portal" />
-  <input type="date" name="fecha_postulacion" [(ngModel)]="fecha_postulacion" required />
-  <select name="estado" [(ngModel)]="estado">
-    @for (e of estados; track e) {
-      <option [value]="e">{{ etiqueta(e) }}</option>
-    }
-  </select>
-  <input type="datetime-local" name="fecha_entrevista" title="Fecha y hora de entrevista (opcional)" [(ngModel)]="fecha_entrevista" />
-  <input type="url" name="link" placeholder="Link (opcional)" [(ngModel)]="link" />
-  <input type="text" name="descripcion" placeholder="De que trata (opcional)" [(ngModel)]="descripcion" />
-  <input type="text" name="notas" placeholder="Notas (opcional)" [(ngModel)]="notas" />
-  <button type="submit">{{ editandoId() ? 'Guardar cambios' : 'Agregar postulacion' }}</button>
-  @if (editandoId()) {
-    <button type="button" class="secundario" (click)="cancelarEdicion()">Cancelar</button>
-  }
-</form>
-
-@if (error()) {
-  <p class="mensaje">{{ error() }}</p>
-}
-
-<div class="filtro">
-  <label>
-    Filtrar por estado:
-    <select [ngModel]="filtroEstado()" (ngModelChange)="filtroEstado.set($event)" name="filtroEstado">
-      <option value="">Todas</option>
-      @for (e of estados; track e) {
-        <option [value]="e">{{ etiqueta(e) }}</option>
-      }
-    </select>
-  </label>
+<div class="search-row">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+  <input type="text" placeholder="Buscar por empresa o puesto…" [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
 </div>
 
-<table class="tabla">
-  <thead>
-    <tr>
-      <th>Empresa</th>
-      <th>Puesto</th>
-      <th>Portal</th>
-      <th>Fecha</th>
-      <th>Estado</th>
-      <th>Entrevista</th>
-      <th>De que trata</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    @for (postulacion of postulacionesFiltradas(); track postulacion.id) {
-      <tr>
-        <td>{{ postulacion.empresa }}</td>
-        <td>{{ postulacion.puesto }}</td>
-        <td>{{ postulacion.portal || '-' }}</td>
-        <td>{{ postulacion.fecha_postulacion }}</td>
-        <td>{{ etiqueta(postulacion.estado) }}</td>
-        <td>{{ formatoEntrevista(postulacion.fecha_entrevista) }}</td>
-        <td class="descripcion" [title]="postulacion.descripcion || ''">
-          {{ resumenDescripcion(postulacion.descripcion) }}
-          @if (postulacion.link) {
-            <a [href]="postulacion.link" target="_blank" rel="noopener">Ver aviso</a>
+<div class="filtro-row">
+  @for (f of filtros(); track f.valor) {
+    <button
+      type="button"
+      class="filtro-pill"
+      [class.active]="f.activo"
+      [style.background]="f.activo ? f.color : ''"
+      (click)="filtroEstado.set(f.valor)"
+    >
+      {{ f.etiqueta }}
+    </button>
+  }
+</div>
+
+<div class="postulaciones-list">
+  @for (p of postulacionesFiltradas(); track p.id) {
+    <div class="card">
+      <button type="button" class="post-row" (click)="toggleExpandido(p.id)">
+        <div class="post-logo">{{ inicial(p.empresa) }}</div>
+        <div class="post-body">
+          <div class="post-empresa">{{ p.empresa }}</div>
+          <div class="post-puesto">{{ p.puesto }}</div>
+          <div class="post-meta">
+            @if (p.portal) {
+              <span class="portal-tag">{{ p.portal }}</span>
+            }
+            <span class="post-date">{{ formatoFecha(p.fecha_postulacion) }}</span>
+          </div>
+        </div>
+        <span class="estado-pill estado-{{ p.estado }}">{{ etiqueta(p.estado) }}</span>
+        <svg class="chevron" [class.abierto]="expandidoId() === p.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      @if (expandidoId() === p.id) {
+        <div class="post-detail">
+          <p>{{ p.descripcion || 'Sin descripción cargada.' }}</p>
+          @if (p.fecha_entrevista) {
+            <p class="post-entrevista"><strong>Entrevista:</strong> {{ formatoEntrevista(p.fecha_entrevista) }}</p>
           }
-        </td>
-        <td class="acciones">
-          <button type="button" class="secundario" (click)="editar(postulacion)">Editar</button>
-          <button type="button" class="secundario" (click)="borrar(postulacion)">Borrar</button>
-        </td>
-      </tr>
-    } @empty {
-      <tr>
-        <td colspan="8">Todavia no hay postulaciones cargadas.</td>
-      </tr>
-    }
-  </tbody>
-</table>
+          @if (p.notas) {
+            <p class="post-notas"><strong>Notas:</strong> {{ p.notas }}</p>
+          }
+          @if (p.link) {
+            <a class="post-link" [href]="p.link" target="_blank" rel="noopener">Ver aviso original →</a>
+          }
+          <div class="post-acciones">
+            <button type="button" class="btn-editar" (click)="editar(p)">Editar</button>
+            <button type="button" class="btn-borrar" (click)="borrar(p)">Borrar</button>
+          </div>
+        </div>
+      }
+    </div>
+  } @empty {
+    <div class="card empty-note">Todavía no hay postulaciones cargadas.</div>
+  }
+</div>

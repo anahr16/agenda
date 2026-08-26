@@ -11,12 +11,16 @@ const authRouter = require('./routes/auth');
 const clientesRouter = require('./routes/clientes');
 const citasRouter = require('./routes/citas');
 const postulacionesRouter = require('./routes/postulaciones');
+const mailsRevisionRouter = require('./routes/mailsRevision');
+const eventosRouter = require('./routes/eventos');
 const annieRouter = require('./routes/annie');
 const requireAuth = require('./middleware/auth');
 const iniciarRecordatorios = require('./recordatorios');
 const iniciarSincronizacionEmails = require('./emailSync');
 const iniciarRecordatoriosPostulaciones = require('./recordatoriosPostulaciones');
 const iniciarRecordatoriosEntrevistas = require('./recordatoriosEntrevistas');
+const iniciarRecordatoriosEventos = require('./recordatoriosEventos');
+const iniciarResumenSemanal = require('./resumenSemanal');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -33,6 +37,8 @@ app.use('/auth', authRouter);
 app.use('/clientes', requireAuth, clientesRouter);
 app.use('/citas', requireAuth, citasRouter);
 app.use('/postulaciones', requireAuth, postulacionesRouter);
+app.use('/mails-revision', requireAuth, mailsRevisionRouter);
+app.use('/eventos', requireAuth, eventosRouter);
 app.use('/annie', requireAuth, annieRouter);
 
 app.listen(PORT, () => {
@@ -41,4 +47,6 @@ app.listen(PORT, () => {
   iniciarSincronizacionEmails();
   iniciarRecordatoriosPostulaciones();
   iniciarRecordatoriosEntrevistas();
+  iniciarRecordatoriosEventos();
+  iniciarResumenSemanal();
 });

@@ -110,6 +110,34 @@ const PARSERS = [
       return { puesto: limpiar(puesto), estado };
     },
   },
+  {
+    // ATS generico (no es un portal de empleo, es el software que usa cada
+    // empresa para gestionar SU propio proceso -- por eso el remitente
+    // cambia segun quien lo use, ej. "HR Capital"). El asunto trae el
+    // nombre de la empresa directo.
+    portal: 'SmartRecruiters',
+    tipo: 'nueva_postulacion',
+    remitente: /@smartrecruiters\.com$/i,
+    extraer(asunto, texto) {
+      const empresa = (asunto.match(/Thank you for applying to (.+)$/i) || [])[1];
+      const puesto = (texto.match(/for the position of ([\s\S]+?)\.(?=\s|$)/i) || [])[1];
+      if (!empresa || !puesto) return null;
+      return { empresa: limpiar(empresa), puesto: limpiar(puesto) };
+    },
+  },
+  {
+    // Mismo caso que SmartRecruiters: ATS generico (Pandape) que cualquier
+    // empresa puede usar para su propio proceso -- el remitente varia
+    // (ej. "TicMoAI"), la empresa sale del cuerpo, no del asunto.
+    portal: 'Pandape',
+    tipo: 'nueva_postulacion',
+    remitente: /@pandape\.com$/i,
+    extraer(asunto, texto) {
+      const match = texto.match(/([^\n]+?)\s*\n\s*Proceso de selecci[oó]n para:\s*\n\s*([\s\S]+?)\s*(?:\n\s*\n|La empresa|$)/i);
+      if (!match) return null;
+      return { empresa: limpiar(match[1]), puesto: limpiar(match[2]) };
+    },
+  },
 ];
 
 // Red de contencion para empresas que escriben directo desde su propio ATS

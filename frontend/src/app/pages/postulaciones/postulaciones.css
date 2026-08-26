@@ -32,6 +32,42 @@
   filter: brightness(1.05);
 }
 
+.page-head-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.btn-recalcular {
+  padding: 0.65rem 1.15rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-recalcular:hover:not(:disabled) {
+  border-color: var(--accent-purple);
+  color: var(--accent-purple-deep);
+}
+
+.btn-recalcular:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.mensaje-recalculo {
+  margin: -1rem 0 1.4rem;
+  font-size: 0.85rem;
+  color: var(--accent-purple-deep);
+}
+
 /* formulario nueva/editar postulación */
 .postulacion-form {
   display: grid;
@@ -105,6 +141,100 @@
   margin: 0;
   color: var(--coral-deep);
   font-size: 0.85rem;
+}
+
+/* bandeja de revisión de mails sin identificar */
+.revision-card {
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.4rem;
+  border: 1.5px solid oklch(85% 0.07 78);
+  background: oklch(97% 0.02 78);
+}
+
+.revision-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #8a6200;
+}
+
+.revision-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.revision-sub {
+  margin: 0.35rem 0 1rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.revision-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.revision-item {
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.revision-row {
+  width: 100%;
+  text-align: left;
+  padding: 0.8rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.revision-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.revision-remitente {
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.revision-asunto {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-top: 0.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.revision-fecha {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+.revision-detail {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--border);
+  margin: 0 1rem;
+  padding-top: 0.8rem;
+}
+
+.revision-detail p {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0 0 0.6rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 16rem;
+  overflow-y: auto;
 }
 
 /* stats card */
@@ -343,6 +473,28 @@
   color: var(--ink-faint);
 }
 
+.compat-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: oklch(93% 0.07 165);
+  color: #0e7a52;
+  white-space: nowrap;
+}
+
+.prob-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: oklch(94% 0.09 78);
+  color: #8a6200;
+  white-space: nowrap;
+}
+
 .estado-pill {
   font-size: 0.72rem;
   font-weight: 800;
@@ -374,6 +526,25 @@
   padding-top: 0.9rem;
 }
 
+/* formulario de edicion inline, dentro de la propia tarjeta de la postulacion
+   (en vez de arriba de la pagina) -- se anula el look de "card" del
+   formulario para que no quede una tarjeta adentro de otra tarjeta. */
+.post-detail-form {
+  padding: 0 1.3rem 1.2rem;
+  border-top: 1px solid var(--border);
+  margin: 0 1.3rem;
+  padding-top: 0.9rem;
+}
+
+.post-detail-form .postulacion-form {
+  background: none;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 0;
+}
+
 .post-detail p {
   font-size: 0.85rem;
   color: var(--ink-soft);
@@ -382,7 +553,8 @@
 }
 
 .post-detail .post-notas,
-.post-detail .post-entrevista {
+.post-detail .post-entrevista,
+.post-detail .post-compatibilidad {
   color: var(--ink);
 }
 

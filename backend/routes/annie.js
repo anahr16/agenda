@@ -1,9 +1,17 @@
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../db');
+const { calcularProbabilidad } = require('../probabilidadLlamada');
 
 const router = express.Router();
 const client = new Anthropic();
+
+// Haiku en vez de Sonnet: medido en real, ~2-2.4x mas rapido (908ms vs
+// 2205ms en una respuesta simple) y sigue usando bien la herramienta de
+// agendar_entrevista (fechas relativas tipo "el jueves que viene" incluidas).
+// Esta tarea (chat corto + una sola herramienta) no necesita el modelo mas
+// grande.
+const MODELO = 'claude-haiku-4-5-20251001';
 
 // El resto de la app (formulario de Postulaciones, Agenda) guarda fecha_entrevista
 // como hora LOCAL sin offset (el form convierte con `new Date(local).toISOString()`,
@@ -19,11 +27,19 @@ function aFechaAlmacenable(fechaNaive) {
   return new Date(fechaNaive).toISOString().slice(0, 19);
 }
 
+// Calcular el dia de la semana de una fecha es un punto ciego tipico de los
+// LLM (incluso Haiku se equivoco una vez diciendo "martes" para un
+// miercoles) -- se lo pasamos ya calculado en vez de dejar que lo infiera,
+// asi no arrastra ese error a fechas relativas como "el lunes que viene".
+function diaSemanaLocal(date = new Date()) {
+  return date.toLocaleDateString('es-419', { weekday: 'long' });
+}
+
 const HERRAMIENTAS = [
   {
     name: 'agendar_entrevista',
     description:
-      'Agenda o reprograma una entrevista de trabajo en el calendario. Si ya existe una postulacion para esa empresa la actualiza; si no, crea una nueva postulacion en estado "entrevista".',
+      'Agenda o reprograma una entrevista de TRABAJO en el calendario (con una empresa). Si ya existe una postulacion para esa empresa la actualiza; si no, crea una nueva postulacion en estado "entrevista". Para cualquier otra cosa (una cita personal, un recordatorio, un cumpleanos, algo con la familia) usa crear_evento en vez de esta.',
     input_schema: {
       type: 'object',
       properties: {
@@ -36,6 +52,30 @@ const HERRAMIENTAS = [
         },
       },
       required: ['empresa', 'fecha_entrevista'],
+    },
+  },
+  {
+    name: 'crear_evento',
+    description:
+      'Crea un evento o recordatorio PERSONAL en la Agenda -- cualquier cosa que no sea una entrevista de trabajo con una empresa: una cita con alguien (ej. "cita con mi esposo"), un control medico, un cumpleanos, un recordatorio suelto, etc.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        titulo: { type: 'string', description: 'Titulo corto del evento, ej. "Cita con mi esposo" o "Control medico".' },
+        fecha: { type: 'string', description: 'Fecha del evento, formato YYYY-MM-DD, en la hora local de la usuaria.' },
+        hora: {
+          type: 'string',
+          description:
+            'Hora del evento en formato HH:mm (24hs), en la hora local de la usuaria. Si la usuaria no menciona una hora puntual, omitir este campo (el evento queda como "todo el dia").',
+        },
+        notas: { type: 'string', description: 'Notas adicionales, opcional.' },
+        tipo: {
+          type: 'string',
+          enum: ['personal', 'medica', 'profesional', 'social'],
+          description: 'Tipo de evento. Si no se puede inferir del pedido, usar "personal".',
+        },
+      },
+      required: ['titulo', 'fecha'],
     },
   },
 ];
@@ -63,22 +103,41 @@ function agendarEntrevista({ empresa, puesto, fecha_entrevista }) {
   return db.prepare('SELECT * FROM postulaciones WHERE id = ?').get(resultado.lastInsertRowid);
 }
 
+function crearEvento({ titulo, fecha, hora, notas, tipo }) {
+  const resultado = db
+    .prepare("INSERT INTO eventos (titulo, fecha, hora, notas, tipo) VALUES (?, ?, ?, ?, COALESCE(?, 'personal'))")
+    .run(titulo, fecha, hora || null, notas || null, tipo || null);
+  return db.prepare('SELECT * FROM eventos WHERE id = ?').get(resultado.lastInsertRowid);
+}
+
 function contextoPostulaciones() {
   const filas = db
-    .prepare('SELECT empresa, puesto, estado, fecha_entrevista FROM postulaciones ORDER BY creado_en DESC LIMIT 30')
+    .prepare(
+      'SELECT empresa, puesto, estado, fecha_entrevista, fecha_postulacion, compatibilidad_oferta FROM postulaciones ORDER BY creado_en DESC LIMIT 30'
+    )
     .all();
   if (filas.length === 0) return 'Todavia no hay postulaciones cargadas.';
   return filas
-    .map((p) => `- ${p.empresa} (${p.puesto}) · estado: ${p.estado}${p.fecha_entrevista ? ` · entrevista: ${p.fecha_entrevista}` : ''}`)
+    .map((p) => {
+      const detalles = [`estado: ${p.estado}`];
+      if (p.fecha_entrevista) detalles.push(`entrevista: ${p.fecha_entrevista}`);
+      const probabilidad = calcularProbabilidad(p);
+      if (probabilidad !== null) detalles.push(`probabilidad de llamada: ${probabilidad}%`);
+      if (p.compatibilidad_oferta !== null && p.compatibilidad_oferta !== undefined) {
+        detalles.push(`compatibilidad con la oferta: ${p.compatibilidad_oferta}%`);
+      }
+      return `- ${p.empresa} (${p.puesto}) · ${detalles.join(' · ')}`;
+    })
     .join('\n');
 }
 
 function systemPrompt() {
   return `Eres Annie, la asistente de Agenda Inteligente. Revisas los mails de postulaciones laborales de la usuaria y la ayudas a no perderse ninguna entrevista.
 Hablas en espanol neutro (sin "vos" ni modismos regionales de ningun pais en particular), calida, cercana y directa, en pocas oraciones (maximo 2-3).
-La fecha y hora actual (hora local de la usuaria) es ${fechaLocalNaive()}.
-Cuando la usuaria te pida agendar, mover o cambiar una entrevista, usa la herramienta agendar_entrevista. Si no sabe el puesto, usa "Sin especificar" como valor.
-Estas son las postulaciones actuales:
+La fecha y hora actual (hora local de la usuaria) es ${fechaLocalNaive()}, que es ${diaSemanaLocal()}. Usa ese dia de la semana tal cual para calcular fechas relativas ("el lunes que viene", "el viernes", etc.) -- no lo recalcules vos misma.
+Cuando la usuaria te pida agendar, mover o cambiar una entrevista de TRABAJO (menciona una empresa), usa agendar_entrevista -- si no sabe el puesto, usa "Sin especificar" como valor. Para cualquier otra cosa personal (una cita con alguien, un control medico, un cumpleanos, un recordatorio suelto) usa crear_evento en vez de tratarla como si fuera laboral.
+Estas son las postulaciones actuales, con dos datos calculados que pueden aparecer:
+"probabilidad de llamada" (estimacion heuristica de que la contacten, NO una garantia) y "compatibilidad con la oferta" (que tan bien calza su perfil con esa oferta puntual, calculado con IA). Si te pregunta cuales son sus postulaciones mas prometedoras o a cuales priorizar, usa estos datos, pero aclarale que son estimaciones, no certezas.
 ${contextoPostulaciones()}
 Despues de usar una herramienta, confirmale a la usuaria en una oracion corta lo que hiciste.`;
 }
@@ -97,7 +156,7 @@ router.post('/chat', async (req, res) => {
 
   try {
     let respuesta = await client.messages.create({
-      model: 'claude-sonnet-5',
+      model: MODELO,
       max_tokens: 1024,
       system: systemPrompt(),
       tools: HERRAMIENTAS,
@@ -114,6 +173,9 @@ router.post('/chat', async (req, res) => {
           if (uso.name === 'agendar_entrevista') {
             resultado = agendarEntrevista(uso.input);
             acciones.push(resultado);
+          } else if (uso.name === 'crear_evento') {
+            resultado = crearEvento(uso.input);
+            acciones.push(resultado);
           } else {
             resultado = { error: 'Herramienta desconocida' };
           }
@@ -126,7 +188,7 @@ router.post('/chat', async (req, res) => {
       mensajes.push({ role: 'user', content: resultados });
 
       respuesta = await client.messages.create({
-        model: 'claude-sonnet-5',
+        model: MODELO,
         max_tokens: 1024,
         system: systemPrompt(),
         tools: HERRAMIENTAS,
@@ -161,6 +223,7 @@ router.post('/tts', async (req, res) => {
   if (!texto || typeof texto !== 'string') {
     return res.status(400).json({ error: 'Falta el texto' });
   }
+  console.log(`[annie-tts] Pedido de voz (${new Date().toISOString()}): "${texto}"`);
 
   try {
     const respuesta = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -173,7 +236,13 @@ router.post('/tts', async (req, res) => {
       body: JSON.stringify({
         text: texto,
         model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.6, use_speaker_boost: true },
+        // stability baja + style alto es la combinacion que ElevenLabs mismo
+        // advierte que genera artefactos, mas notorio en frases cortas.
+        // speed levemente bajo el 1.0 normal: la primera palabra de una
+        // frase sonaba "atropellada" (arranca mas rapido de lo que asienta
+        // despues) -- comun en TTS, se suaviza bajando un poco el ritmo
+        // general.
+        voice_settings: { stability: 0.65, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true, speed: 0.9 },
       }),
     });
 

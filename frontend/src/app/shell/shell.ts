@@ -4,6 +4,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { AuthService } from '../core/auth.service';
 import { PushService } from '../core/push.service';
 import { PostulacionesService, Postulacion } from '../core/postulaciones.service';
+import { EventosService } from '../core/eventos.service';
 import { AnnieMensaje, AnnieService } from '../core/annie.service';
 
 interface ActividadAnnie {
@@ -84,6 +85,7 @@ export class Shell implements OnInit, OnDestroy {
     private push: PushService,
     private router: Router,
     private postulacionesService: PostulacionesService,
+    private eventosService: EventosService,
     private annieService: AnnieService
   ) {
     // Dispara la carga asincronica de voces del navegador lo antes posible
@@ -233,6 +235,9 @@ export class Shell implements OnInit, OnDestroy {
             next: (lista) => (this.ultimaListaConocida = lista),
             error: () => {},
           });
+          // Annie tambien puede crear eventos personales (crear_evento) --
+          // se refresca igual para que la Agenda lo vea sin recargar.
+          this.eventosService.listar().subscribe({ error: () => {} });
         }
         this.annieEscribiendo.set(false);
       },
@@ -273,13 +278,67 @@ export class Shell implements OnInit, OnDestroy {
 
   private hablar(texto: string): void {
     if (!this.vozActivada()) return;
+    this.despertarSalidaDeAudio();
     // Voz "linda" de ElevenLabs primero; si todavia no esta configurada (o
     // falla la request) cae a la voz gratis del navegador, asi Annie nunca
     // se queda muda.
     this.annieService.hablar(texto).subscribe({
       next: (audioBlob) => this.reproducirAudio(audioBlob),
-      error: () => this.hablarConVozDelNavegador(texto),
+      error: () => {
+        this.detenerDespertador();
+        this.hablarConVozDelNavegador(texto);
+      },
     });
+  }
+
+  private audioContextDespertador: AudioContext | null = null;
+  private osciladorDespertador: OscillatorNode | null = null;
+
+  // Auriculares/parlantes Bluetooth entran en bajo consumo sin audio y
+  // tardan 1-2s en "despertar" del todo cuando arranca un sonido nuevo --
+  // eso se come el principio de la voz de Annie aunque el archivo este
+  // completo (confirmado analizando el audio real que llega al navegador,
+  // byte a byte: no hay ningun silencio de origen). Se dispara un tono a
+  // 20Hz (practicamente imperceptible, casi infrasonico) apenas se decide
+  // hablar, y NO se corta con un tiempo fijo -- se mantiene sonando hasta
+  // que el audio real arranca de verdad (`reproducirAudio`/fallback del
+  // navegador), para que no quede ningun hueco de silencio real en el medio
+  // que deje al dispositivo volver a dormirse antes de que llegue la voz.
+  private despertarSalidaDeAudio(): void {
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const contexto = new Ctx();
+      const oscilador = contexto.createOscillator();
+      const ganancia = contexto.createGain();
+      oscilador.frequency.value = 20;
+      ganancia.gain.value = 0.05;
+      oscilador.connect(ganancia).connect(contexto.destination);
+      oscilador.start();
+      this.audioContextDespertador = contexto;
+      this.osciladorDespertador = oscilador;
+      // Red de seguridad por si nunca se llama a reproducirAudio ni al
+      // fallback (no deberia pasar, pero que no quede sonando para siempre).
+      setTimeout(() => this.detenerDespertador(), 8000);
+    } catch {
+      // Si el navegador no soporta Web Audio, Annie sigue hablando igual,
+      // solo sin este "despertador" previo.
+    }
+  }
+
+  private detenerDespertador(): void {
+    if (this.osciladorDespertador) {
+      try {
+        this.osciladorDespertador.stop();
+      } catch {
+        // Ya pudo haber sido detenido antes (ej. por la red de seguridad).
+      }
+      this.osciladorDespertador = null;
+    }
+    if (this.audioContextDespertador) {
+      this.audioContextDespertador.close();
+      this.audioContextDespertador = null;
+    }
   }
 
   private reproducirAudio(blob: Blob): void {
@@ -288,7 +347,15 @@ export class Shell implements OnInit, OnDestroy {
     const audio = new Audio(url);
     this.audioActual = audio;
     audio.addEventListener('ended', () => URL.revokeObjectURL(url));
-    audio.play().catch(() => URL.revokeObjectURL(url));
+    audio
+      .play()
+      // El despertador se corta recien cuando el audio real YA esta
+      // sonando (con un margen chico de superposicion), nunca antes.
+      .then(() => setTimeout(() => this.detenerDespertador(), 200))
+      .catch(() => {
+        this.detenerDespertador();
+        URL.revokeObjectURL(url);
+      });
   }
 
   private detenerAudio(): void {

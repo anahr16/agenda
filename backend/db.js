@@ -52,7 +52,36 @@ db.exec(`
     message_id TEXT PRIMARY KEY,
     procesado_en TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS postulaciones_emails_revision (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    remitente TEXT,
+    asunto TEXT,
+    cuerpo TEXT,
+    fecha_recibido TEXT,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS eventos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titulo TEXT NOT NULL,
+    fecha TEXT NOT NULL,
+    hora TEXT,
+    notas TEXT,
+    tipo TEXT NOT NULL DEFAULT 'personal',
+    recordatorio_enviado INTEGER NOT NULL DEFAULT 0,
+    creado_en TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
+
+// Migracion: agrega recordatorio_enviado si la tabla eventos ya existia sin esa columna.
+const columnasEventos = db.prepare('PRAGMA table_info(eventos)').all();
+if (!columnasEventos.some((columna) => columna.name === 'recordatorio_enviado')) {
+  db.exec('ALTER TABLE eventos ADD COLUMN recordatorio_enviado INTEGER NOT NULL DEFAULT 0');
+}
+if (!columnasEventos.some((columna) => columna.name === 'tipo')) {
+  db.exec("ALTER TABLE eventos ADD COLUMN tipo TEXT NOT NULL DEFAULT 'personal'");
+}
 
 // Migracion: agrega recordatorio_enviado si la tabla citas ya existia sin esa columna.
 const columnasCitas = db.prepare('PRAGMA table_info(citas)').all();
@@ -70,6 +99,13 @@ if (!columnasPostulaciones.some((columna) => columna.name === 'recordatorio_segu
 }
 if (!columnasPostulaciones.some((columna) => columna.name === 'recordatorio_entrevista_enviado')) {
   db.exec('ALTER TABLE postulaciones ADD COLUMN recordatorio_entrevista_enviado INTEGER NOT NULL DEFAULT 0');
+}
+// Migracion: compatibilidad de la oferta con el perfil (ver compatibilidadOferta.js).
+if (!columnasPostulaciones.some((columna) => columna.name === 'compatibilidad_oferta')) {
+  db.exec('ALTER TABLE postulaciones ADD COLUMN compatibilidad_oferta INTEGER');
+}
+if (!columnasPostulaciones.some((columna) => columna.name === 'compatibilidad_razon')) {
+  db.exec('ALTER TABLE postulaciones ADD COLUMN compatibilidad_razon TEXT');
 }
 
 module.exports = db;

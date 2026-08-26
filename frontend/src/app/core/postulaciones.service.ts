@@ -18,6 +18,11 @@ export interface Postulacion {
   fecha_entrevista: string | null;
   notas: string | null;
   creado_en: string;
+  /** Estimacion heuristica (0-100); null si el estado ya no es enviada/vista. Ver backend/probabilidadLlamada.js. */
+  probabilidad_llamada: number | null;
+  /** Compatibilidad del perfil con esta oferta puntual (0-100, calculado con IA); null si no hay descripcion o no se pudo calcular. */
+  compatibilidad_oferta: number | null;
+  compatibilidad_razon: string | null;
 }
 
 export interface PostulacionesStats {
@@ -65,5 +70,9 @@ export class PostulacionesService {
 
   stats() {
     return this.http.get<PostulacionesStats>(`${this.base}/stats`);
+  }
+
+  recalcularCompatibilidad() {
+    return this.http.post<{ actualizadas: number }>(`${this.base}/recalcular-compatibilidad`, {});
   }
 }

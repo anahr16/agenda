@@ -7,6 +7,8 @@ const PARSERS = require('./emailParsers');
 const { pareceLaboral } = PARSERS;
 const { obtenerDescripcion } = require('./jobPageScraper');
 const { enviarTelegram } = require('./telegram');
+const { calcularCompatibilidad } = require('./compatibilidadOferta');
+const { leerPerfil } = require('./perfil');
 
 const DIAS_ATRAS = Number(process.env.EMAIL_SYNC_DIAS_ATRAS || 3);
 const ESTADOS_TERMINALES = ['rechazada', 'oferta'];
@@ -78,6 +80,44 @@ function actualizarDescripcion(id, descripcion) {
   db.prepare('UPDATE postulaciones SET descripcion = ? WHERE id = ?').run(descripcion, id);
 }
 
+function actualizarCompatibilidad(id, compatibilidad, razon) {
+  db.prepare('UPDATE postulaciones SET compatibilidad_oferta = ?, compatibilidad_razon = ? WHERE id = ?').run(
+    compatibilidad ?? null,
+    razon ?? null,
+    id
+  );
+}
+
+function mensajeCambioEstado({ empresa, puesto, estado }) {
+  switch (estado) {
+    case 'oferta':
+      return `🎉 ¡Oferta de ${empresa} (${puesto})!`;
+    case 'entrevista':
+      return `📅 Te agendaron una entrevista con ${empresa} (${puesto}).`;
+    case 'rechazada':
+      return `❌ ${empresa} (${puesto}) respondió que no avanzás esta vez.`;
+    case 'vista':
+      return `👀 ${empresa} (${puesto}) vio tu postulación.`;
+    default:
+      return `${empresa} (${puesto}) actualizó tu postulación a "${estado}".`;
+  }
+}
+
+// Aviso por Telegram de una postulacion nueva o un cambio de estado que el
+// sistema SI reconocio (a diferencia de avisarMailNoReconocido, que es para
+// lo que no reconoce). Antes esto quedaba en silencio total salvo que se
+// tuviera la app abierta -- Annie solo lo anunciaba (voz/notificacion del
+// navegador) mientras el frontend estaba con la pestaña abierta, comparando
+// cada 60s contra el ultimo estado que vio (shell.ts). Sin la app abierta,
+// no habia forma de enterarse.
+async function avisarPorTelegram(mensaje) {
+  try {
+    await enviarTelegram(mensaje);
+  } catch (err) {
+    console.error('[email-sync] No se pudo avisar por Telegram:', err.message);
+  }
+}
+
 async function procesarNuevaPostulacion(datos, parserUsado, fechaMail) {
   if (buscarPostulacion(datos.empresa, datos.puesto)) return;
   const id = crearPostulacion({
@@ -88,17 +128,27 @@ async function procesarNuevaPostulacion(datos, parserUsado, fechaMail) {
     fecha: fechaMail.toISOString().slice(0, 10),
   });
   console.log(`[email-sync] Postulacion detectada: ${datos.empresa} - ${datos.puesto} (${parserUsado.portal})`);
+  await avisarPorTelegram(`✅ Postulación detectada: ${datos.empresa} — ${datos.puesto} (${parserUsado.portal}).`);
 
   if (!datos.link) return;
+  let descripcion;
   try {
-    const descripcion = await obtenerDescripcion(datos.link);
+    descripcion = await obtenerDescripcion(datos.link);
     if (descripcion) actualizarDescripcion(id, descripcion);
   } catch (err) {
     console.warn(`[email-sync] No se pudo traer la descripcion de ${datos.link}:`, err.message);
   }
+
+  if (!descripcion) return;
+  try {
+    const compat = await calcularCompatibilidad(leerPerfil(), descripcion);
+    if (compat) actualizarCompatibilidad(id, compat.compatibilidad, compat.razon);
+  } catch (err) {
+    console.warn(`[email-sync] No se pudo calcular compatibilidad con la oferta:`, err.message);
+  }
 }
 
-function procesarCambioEstado(datos) {
+async function procesarCambioEstado(datos) {
   const candidatas = datos.empresa
     ? [buscarPostulacion(datos.empresa, datos.puesto)].filter(Boolean)
     : buscarPostulacionesPorPuesto(datos.puesto);
@@ -117,19 +167,29 @@ function procesarCambioEstado(datos) {
 
   actualizarEstadoPostulacion(postulacion.id, datos.estado);
   console.log(`[email-sync] Estado actualizado: ${postulacion.empresa} - ${postulacion.puesto} -> ${datos.estado}`);
+  await avisarPorTelegram(mensajeCambioEstado({ empresa: postulacion.empresa, puesto: postulacion.puesto, estado: datos.estado }));
+}
+
+function guardarParaRevision(remitente, asunto, texto, fecha) {
+  db.prepare(
+    'INSERT INTO postulaciones_emails_revision (remitente, asunto, cuerpo, fecha_recibido) VALUES (?, ?, ?, ?)'
+  ).run(remitente, asunto || null, texto, (fecha || new Date()).toISOString());
 }
 
 // Red de contencion para mails que no matchean ningun portal conocido (ni
 // por remitente ni porque el formato del contenido cambio): si igual
-// *parecen* de un proceso de postulacion (por palabras clave), se avisa por
-// Telegram para revisarlo a mano en vez de perderlo en silencio -- es el
-// caso de empresas que escriben directo desde su propio ATS (ej. TicMoAI).
-async function avisarMailNoReconocido(remitente, asunto, texto) {
+// *parecen* de un proceso de postulacion (por palabras clave), el mail
+// completo se guarda en `postulaciones_emails_revision` (bandeja de
+// revision en la pantalla de Postulaciones) y ademas se avisa por Telegram,
+// en vez de perderlo en silencio -- es el caso de empresas que escriben
+// directo desde su propio ATS (ej. TicMoAI).
+async function avisarMailNoReconocido(remitente, asunto, texto, fecha) {
   if (!pareceLaboral(asunto, texto)) return;
+  guardarParaRevision(remitente, asunto, texto, fecha);
   const extracto = texto.replace(/\s+/g, ' ').trim().slice(0, 220);
   const mensaje = `📧 Mail que parece de una postulación pero no reconozco el formato:\n${remitente}\n"${asunto || '(sin asunto)'}"\n${extracto}${
     extracto.length === 220 ? '…' : ''
-  }\n\nRevisalo a mano y cargalo en Postulaciones si corresponde.`;
+  }\n\nQuedó guardado en la bandeja de revisión de Postulaciones.`;
   try {
     await enviarTelegram(mensaje);
     console.log(`[email-sync] Aviso de mail no reconocido enviado por Telegram (${remitente})`);
@@ -175,7 +235,7 @@ async function sincronizarEmails() {
           // parece de una postulacion, en vez de descartarlo sin mirarlo.
           const parsed = await simpleParser(msg.source);
           const texto = textoDelMail(parsed);
-          await avisarMailNoReconocido(remitente, parsed.subject || '', texto);
+          await avisarMailNoReconocido(remitente, parsed.subject || '', texto, msg.envelope.date);
           marcarProcesado(messageId);
           continue;
         }
@@ -195,7 +255,7 @@ async function sincronizarEmails() {
 
         if (!datos) {
           console.warn(`[email-sync] Mail de ${remitente} no matcheo ningun formato conocido (asunto: "${parsed.subject}")`);
-          await avisarMailNoReconocido(remitente, parsed.subject || '', texto);
+          await avisarMailNoReconocido(remitente, parsed.subject || '', texto, msg.envelope.date);
           marcarProcesado(messageId);
           continue;
         }
@@ -203,7 +263,7 @@ async function sincronizarEmails() {
         if (parserUsado.tipo === 'nueva_postulacion') {
           await procesarNuevaPostulacion(datos, parserUsado, msg.envelope.date || new Date());
         } else if (parserUsado.tipo === 'cambio_estado') {
-          procesarCambioEstado(datos);
+          await procesarCambioEstado(datos);
         }
 
         marcarProcesado(messageId);

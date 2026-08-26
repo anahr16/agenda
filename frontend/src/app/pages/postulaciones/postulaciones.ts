@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ESTADOS_POSTULACION,
   EstadoPostulacion,
@@ -7,6 +8,7 @@ import {
   PostulacionesService,
   PostulacionesStats,
 } from '../../core/postulaciones.service';
+import { MailRevision, MailsRevisionService } from '../../core/mails-revision.service';
 
 const ETIQUETAS_ESTADO: Record<EstadoPostulacion, string> = {
   enviada: 'Enviada',
@@ -53,7 +55,7 @@ function datetimeLocalInputToUtcIso(local: string): string {
 @Component({
   selector: 'app-postulaciones',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, NgTemplateOutlet],
   templateUrl: './postulaciones.html',
   styleUrl: './postulaciones.css',
 })
@@ -67,6 +69,13 @@ export class Postulaciones implements OnInit {
   filtroEstado = signal<string>('');
   busqueda = signal<string>('');
   error = signal<string | null>(null);
+
+  expandidoRevisionId = signal<number | null>(null);
+  /** Si la postulación en el formulario viene de la bandeja de revisión, su id (para descartarla al guardar). */
+  private revisionOrigenId: number | null = null;
+
+  recalculando = signal(false);
+  mensajeRecalculo = signal<string | null>(null);
 
   empresa = '';
   puesto = '';
@@ -112,10 +121,17 @@ export class Postulaciones implements OnInit {
     }));
   });
 
-  constructor(private postulacionesService: PostulacionesService) {}
+  constructor(
+    private postulacionesService: PostulacionesService,
+    private mailsRevisionService: MailsRevisionService
+  ) {}
 
   ngOnInit(): void {
     this.cargar();
+  }
+
+  get mailsRevision() {
+    return this.mailsRevisionService.mails;
   }
 
   etiqueta(estado: string): string {
@@ -139,10 +155,15 @@ export class Postulaciones implements OnInit {
   cargar(): void {
     this.postulacionesService.listar().subscribe({ error: () => {} });
     this.postulacionesService.stats().subscribe((stats) => this.stats.set(stats));
+    this.mailsRevisionService.listar().subscribe({ error: () => {} });
   }
 
   toggleExpandido(id: number): void {
     this.expandidoId.set(this.expandidoId() === id ? null : id);
+  }
+
+  toggleExpandidoRevision(id: number): void {
+    this.expandidoRevisionId.set(this.expandidoRevisionId() === id ? null : id);
   }
 
   abrirNueva(): void {
@@ -150,8 +171,30 @@ export class Postulaciones implements OnInit {
     this.mostrarFormulario.set(true);
   }
 
+  /** Prellena el formulario de "nueva postulación" con el contenido de un mail de la bandeja de revisión. */
+  cargarDesdeRevision(mail: MailRevision): void {
+    if (this.editandoId()) this.cancelarEdicion();
+    this.revisionOrigenId = mail.id;
+    this.empresa = '';
+    this.puesto = '';
+    this.portal = mail.remitente?.split('@')[1] || '';
+    this.descripcion = '';
+    this.link = '';
+    this.fecha_postulacion = mail.fecha_recibido ? mail.fecha_recibido.slice(0, 10) : toFechaInput(new Date());
+    this.estado = 'enviada';
+    this.fecha_entrevista = '';
+    this.notas = `Mail original (${mail.remitente || 'remitente desconocido'} · "${mail.asunto || 'sin asunto'}"):\n${mail.cuerpo}`;
+    this.mostrarFormulario.set(true);
+  }
+
+  descartarRevision(mail: MailRevision): void {
+    if (!confirm('¿Descartar este mail de la bandeja de revisión? No se va a crear ninguna postulación.')) return;
+    this.mailsRevisionService.descartar(mail.id).subscribe(() => this.cargar());
+  }
+
   editar(postulacion: Postulacion): void {
     this.editandoId.set(postulacion.id);
+    this.expandidoId.set(postulacion.id);
     this.empresa = postulacion.empresa;
     this.puesto = postulacion.puesto;
     this.portal = postulacion.portal ?? '';
@@ -166,6 +209,7 @@ export class Postulaciones implements OnInit {
 
   cancelarEdicion(): void {
     this.editandoId.set(null);
+    this.revisionOrigenId = null;
     this.mostrarFormulario.set(false);
     this.empresa = '';
     this.puesto = '';
@@ -192,11 +236,13 @@ export class Postulaciones implements OnInit {
       notas: this.notas || undefined,
     };
     const id = this.editandoId();
+    const revisionAId = this.revisionOrigenId;
     const accion = id ? this.postulacionesService.editar(id, datos) : this.postulacionesService.crear(datos);
 
     accion.subscribe({
       next: () => {
         this.cancelarEdicion();
+        if (revisionAId) this.mailsRevisionService.descartar(revisionAId).subscribe();
         this.cargar();
       },
       error: (err) => this.error.set(err.error?.error || 'No se pudo guardar la postulacion.'),
@@ -206,5 +252,21 @@ export class Postulaciones implements OnInit {
   borrar(postulacion: Postulacion): void {
     if (!confirm(`¿Borrar la postulacion a ${postulacion.empresa}?`)) return;
     this.postulacionesService.borrar(postulacion.id).subscribe(() => this.cargar());
+  }
+
+  recalcularCompatibilidad(): void {
+    this.recalculando.set(true);
+    this.mensajeRecalculo.set(null);
+    this.postulacionesService.recalcularCompatibilidad().subscribe({
+      next: (res) => {
+        this.recalculando.set(false);
+        this.mensajeRecalculo.set(`Listo, se recalcularon ${res.actualizadas} postulacion(es).`);
+        this.cargar();
+      },
+      error: (err) => {
+        this.recalculando.set(false);
+        this.mensajeRecalculo.set(err.error?.error || 'No se pudo recalcular la compatibilidad.');
+      },
+    });
   }
 }

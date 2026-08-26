@@ -1,11 +1,55 @@
 const express = require('express');
 const db = require('../db');
+const { calcularProbabilidad } = require('../probabilidadLlamada');
+const { calcularCompatibilidad } = require('../compatibilidadOferta');
+const { leerPerfil } = require('../perfil');
 
 const router = express.Router();
 
+function conProbabilidad(postulacion) {
+  return { ...postulacion, probabilidad_llamada: calcularProbabilidad(postulacion) };
+}
+
+// Compatibilidad con IA entre el perfil (perfil.txt) y la descripcion de la
+// oferta -- solo se llama a la API cuando hay descripcion, y solo si cambio
+// (ver PUT) para no repetir el calculo en cada edicion.
+async function compatibilidadPara(descripcion) {
+  if (!descripcion) return { compatibilidad_oferta: null, compatibilidad_razon: null };
+  try {
+    const compat = await calcularCompatibilidad(leerPerfil(), descripcion);
+    return { compatibilidad_oferta: compat?.compatibilidad ?? null, compatibilidad_razon: compat?.razon ?? null };
+  } catch (err) {
+    console.warn('[postulaciones] No se pudo calcular compatibilidad con la oferta:', err.message);
+    return { compatibilidad_oferta: null, compatibilidad_razon: null };
+  }
+}
+
 router.get('/', (req, res) => {
   const postulaciones = db.prepare('SELECT * FROM postulaciones ORDER BY fecha_postulacion DESC, creado_en DESC').all();
-  res.json(postulaciones);
+  res.json(postulaciones.map(conProbabilidad));
+});
+
+// Recalcula compatibilidad_oferta/compatibilidad_razon para todas las
+// postulaciones con descripcion cargada -- lo mismo que hace
+// recalcularCompatibilidad.js por consola, pero como boton en la app (util
+// despues de editar perfil.txt, o para las que quedaron sin calcular).
+router.post('/recalcular-compatibilidad', async (req, res) => {
+  const perfil = leerPerfil();
+  if (!perfil) {
+    return res.status(400).json({ error: 'No se encontro backend/perfil.txt (o esta vacio).' });
+  }
+  const postulaciones = db
+    .prepare("SELECT id, descripcion FROM postulaciones WHERE descripcion IS NOT NULL AND trim(descripcion) != ''")
+    .all();
+  for (const p of postulaciones) {
+    const { compatibilidad_oferta, compatibilidad_razon } = await compatibilidadPara(p.descripcion);
+    db.prepare('UPDATE postulaciones SET compatibilidad_oferta = ?, compatibilidad_razon = ? WHERE id = ?').run(
+      compatibilidad_oferta,
+      compatibilidad_razon,
+      p.id
+    );
+  }
+  res.json({ actualizadas: postulaciones.length });
 });
 
 router.get('/stats', (req, res) => {
@@ -22,18 +66,19 @@ router.get('/:id', (req, res) => {
   if (!postulacion) {
     return res.status(404).json({ error: 'Postulacion no encontrada' });
   }
-  res.json(postulacion);
+  res.json(conProbabilidad(postulacion));
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { empresa, puesto, portal, descripcion, link, fecha_postulacion, estado, fecha_entrevista, notas } = req.body || {};
   if (!empresa || !puesto || !fecha_postulacion) {
     return res.status(400).json({ error: 'empresa, puesto y fecha_postulacion son obligatorios' });
   }
+  const { compatibilidad_oferta, compatibilidad_razon } = await compatibilidadPara(descripcion || null);
   const resultado = db
     .prepare(
-      `INSERT INTO postulaciones (empresa, puesto, portal, descripcion, link, fecha_postulacion, estado, fecha_entrevista, notas)
-       VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 'enviada'), ?, ?)`
+      `INSERT INTO postulaciones (empresa, puesto, portal, descripcion, link, fecha_postulacion, estado, fecha_entrevista, notas, compatibilidad_oferta, compatibilidad_razon)
+       VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 'enviada'), ?, ?, ?, ?)`
     )
     .run(
       empresa,
@@ -44,13 +89,15 @@ router.post('/', (req, res) => {
       fecha_postulacion,
       estado || null,
       fecha_entrevista || null,
-      notas || null
+      notas || null,
+      compatibilidad_oferta,
+      compatibilidad_razon
     );
   const nuevaPostulacion = db.prepare('SELECT * FROM postulaciones WHERE id = ?').get(resultado.lastInsertRowid);
-  res.status(201).json(nuevaPostulacion);
+  res.status(201).json(conProbabilidad(nuevaPostulacion));
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const postulacion = db.prepare('SELECT * FROM postulaciones WHERE id = ?').get(req.params.id);
   if (!postulacion) {
     return res.status(404).json({ error: 'Postulacion no encontrada' });
@@ -61,10 +108,14 @@ router.put('/:id', (req, res) => {
   }
   const recordatorioEntrevista =
     fecha_entrevista !== postulacion.fecha_entrevista ? 0 : postulacion.recordatorio_entrevista_enviado;
+  const descripcionCambio = (descripcion || null) !== postulacion.descripcion;
+  const { compatibilidad_oferta, compatibilidad_razon } = descripcionCambio
+    ? await compatibilidadPara(descripcion || null)
+    : { compatibilidad_oferta: postulacion.compatibilidad_oferta, compatibilidad_razon: postulacion.compatibilidad_razon };
   db
     .prepare(
       `UPDATE postulaciones
-       SET empresa = ?, puesto = ?, portal = ?, descripcion = ?, link = ?, fecha_postulacion = ?, estado = COALESCE(?, estado), fecha_entrevista = ?, notas = ?, recordatorio_entrevista_enviado = ?
+       SET empresa = ?, puesto = ?, portal = ?, descripcion = ?, link = ?, fecha_postulacion = ?, estado = COALESCE(?, estado), fecha_entrevista = ?, notas = ?, recordatorio_entrevista_enviado = ?, compatibilidad_oferta = ?, compatibilidad_razon = ?
        WHERE id = ?`
     )
     .run(
@@ -78,10 +129,12 @@ router.put('/:id', (req, res) => {
       fecha_entrevista || null,
       notas || null,
       recordatorioEntrevista,
+      compatibilidad_oferta,
+      compatibilidad_razon,
       req.params.id
     );
   const actualizada = db.prepare('SELECT * FROM postulaciones WHERE id = ?').get(req.params.id);
-  res.json(actualizada);
+  res.json(conProbabilidad(actualizada));
 });
 
 router.delete('/:id', (req, res) => {

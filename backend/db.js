@@ -68,5 +68,8 @@ if (!columnasPostulaciones.some((columna) => columna.name === 'fecha_entrevista'
 if (!columnasPostulaciones.some((columna) => columna.name === 'recordatorio_seguimiento_enviado')) {
   db.exec('ALTER TABLE postulaciones ADD COLUMN recordatorio_seguimiento_enviado INTEGER NOT NULL DEFAULT 0');
 }
+if (!columnasPostulaciones.some((columna) => columna.name === 'recordatorio_entrevista_enviado')) {
+  db.exec('ALTER TABLE postulaciones ADD COLUMN recordatorio_entrevista_enviado INTEGER NOT NULL DEFAULT 0');
+}
 
 module.exports = db;

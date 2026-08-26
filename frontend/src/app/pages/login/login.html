@@ -5,7 +5,7 @@
         <span class="dot"><img src="/img/logo.png" alt="Anadesing" /></span>
         <span class="word display">Agenda Inteligente</span>
       </div>
-      <h1 class="login-title display">{{ modo() === 'login' ? 'Bienvenida de nuevo' : 'Creá tu cuenta' }}</h1>
+      <h1 class="login-title display">{{ modo() === 'login' ? 'Bienvenida de nuevo' : 'Crea tu cuenta' }}</h1>
       <p class="login-sub">Tus entrevistas y tus postulaciones, en un solo lugar.</p>
 
       <div class="field">
@@ -27,9 +27,9 @@
       </button>
 
       <p class="login-switch">
-        {{ modo() === 'login' ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?' }}
+        {{ modo() === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?' }}
         <button type="button" class="enlace" (click)="alternarModo()">
-          {{ modo() === 'login' ? 'Creá una' : 'Iniciá sesión' }}
+          {{ modo() === 'login' ? 'Crear una' : 'Iniciar sesión' }}
         </button>
       </p>
 

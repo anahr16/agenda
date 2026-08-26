@@ -4,7 +4,7 @@ const db = require('../db');
 const router = express.Router();
 
 router.get('/', (req, res) => {
-  const postulaciones = db.prepare('SELECT * FROM postulaciones ORDER BY fecha_postulacion DESC').all();
+  const postulaciones = db.prepare('SELECT * FROM postulaciones ORDER BY fecha_postulacion DESC, creado_en DESC').all();
   res.json(postulaciones);
 });
 
@@ -59,10 +59,12 @@ router.put('/:id', (req, res) => {
   if (!empresa || !puesto || !fecha_postulacion) {
     return res.status(400).json({ error: 'empresa, puesto y fecha_postulacion son obligatorios' });
   }
+  const recordatorioEntrevista =
+    fecha_entrevista !== postulacion.fecha_entrevista ? 0 : postulacion.recordatorio_entrevista_enviado;
   db
     .prepare(
       `UPDATE postulaciones
-       SET empresa = ?, puesto = ?, portal = ?, descripcion = ?, link = ?, fecha_postulacion = ?, estado = COALESCE(?, estado), fecha_entrevista = ?, notas = ?
+       SET empresa = ?, puesto = ?, portal = ?, descripcion = ?, link = ?, fecha_postulacion = ?, estado = COALESCE(?, estado), fecha_entrevista = ?, notas = ?, recordatorio_entrevista_enviado = ?
        WHERE id = ?`
     )
     .run(
@@ -75,6 +77,7 @@ router.put('/:id', (req, res) => {
       estado || null,
       fecha_entrevista || null,
       notas || null,
+      recordatorioEntrevista,
       req.params.id
     );
   const actualizada = db.prepare('SELECT * FROM postulaciones WHERE id = ?').get(req.params.id);

@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export const ESTADOS_POSTULACION = ['enviada', 'vista', 'entrevista', 'rechazada', 'oferta'] as const;
@@ -41,10 +42,13 @@ export interface DatosPostulacion {
 export class PostulacionesService {
   private readonly base = `${environment.apiUrl}/postulaciones`;
 
+  /** Estado compartido: todas las pantallas leen de acá para verse siempre sincronizadas. */
+  readonly postulaciones = signal<Postulacion[]>([]);
+
   constructor(private http: HttpClient) {}
 
   listar() {
-    return this.http.get<Postulacion[]>(this.base);
+    return this.http.get<Postulacion[]>(this.base).pipe(tap((lista) => this.postulaciones.set(lista)));
   }
 
   crear(datos: DatosPostulacion) {

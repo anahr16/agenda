@@ -60,7 +60,6 @@ function datetimeLocalInputToUtcIso(local: string): string {
 export class Postulaciones implements OnInit {
   readonly estados = ESTADOS_POSTULACION;
 
-  postulaciones = signal<Postulacion[]>([]);
   stats = signal<PostulacionesStats | null>(null);
   editandoId = signal<number | null>(null);
   expandidoId = signal<number | null>(null);
@@ -82,7 +81,7 @@ export class Postulaciones implements OnInit {
   postulacionesFiltradas = computed(() => {
     const filtro = this.filtroEstado();
     const texto = this.busqueda().toLowerCase().trim();
-    let lista = this.postulaciones();
+    let lista = this.postulacionesService.postulaciones();
     if (filtro) lista = lista.filter((p) => p.estado === filtro);
     if (texto) {
       lista = lista.filter(
@@ -129,16 +128,16 @@ export class Postulaciones implements OnInit {
 
   formatoEntrevista(iso: string | null): string {
     if (!iso) return '-';
-    return parseUtc(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return parseUtc(iso).toLocaleString('es-419', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
   formatoFecha(fecha: string): string {
     const d = new Date(`${fecha}T00:00:00`);
-    return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+    return d.toLocaleDateString('es-419', { day: '2-digit', month: 'short' });
   }
 
   cargar(): void {
-    this.postulacionesService.listar().subscribe((postulaciones) => this.postulaciones.set(postulaciones));
+    this.postulacionesService.listar().subscribe({ error: () => {} });
     this.postulacionesService.stats().subscribe((stats) => this.stats.set(stats));
   }
 

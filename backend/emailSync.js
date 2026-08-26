@@ -4,7 +4,9 @@ const { convert } = require('html-to-text');
 const cron = require('node-cron');
 const db = require('./db');
 const PARSERS = require('./emailParsers');
+const { pareceLaboral } = PARSERS;
 const { obtenerDescripcion } = require('./jobPageScraper');
+const { enviarTelegram } = require('./telegram');
 
 const DIAS_ATRAS = Number(process.env.EMAIL_SYNC_DIAS_ATRAS || 3);
 const ESTADOS_TERMINALES = ['rechazada', 'oferta'];
@@ -117,6 +119,25 @@ function procesarCambioEstado(datos) {
   console.log(`[email-sync] Estado actualizado: ${postulacion.empresa} - ${postulacion.puesto} -> ${datos.estado}`);
 }
 
+// Red de contencion para mails que no matchean ningun portal conocido (ni
+// por remitente ni porque el formato del contenido cambio): si igual
+// *parecen* de un proceso de postulacion (por palabras clave), se avisa por
+// Telegram para revisarlo a mano en vez de perderlo en silencio -- es el
+// caso de empresas que escriben directo desde su propio ATS (ej. TicMoAI).
+async function avisarMailNoReconocido(remitente, asunto, texto) {
+  if (!pareceLaboral(asunto, texto)) return;
+  const extracto = texto.replace(/\s+/g, ' ').trim().slice(0, 220);
+  const mensaje = `📧 Mail que parece de una postulación pero no reconozco el formato:\n${remitente}\n"${asunto || '(sin asunto)'}"\n${extracto}${
+    extracto.length === 220 ? '…' : ''
+  }\n\nRevisalo a mano y cargalo en Postulaciones si corresponde.`;
+  try {
+    await enviarTelegram(mensaje);
+    console.log(`[email-sync] Aviso de mail no reconocido enviado por Telegram (${remitente})`);
+  } catch (err) {
+    console.error('[email-sync] No se pudo avisar por Telegram de un mail no reconocido:', err.message);
+  }
+}
+
 let avisoDesactivadoMostrado = false;
 
 async function sincronizarEmails() {
@@ -142,11 +163,22 @@ async function sincronizarEmails() {
 
       for await (const msg of client.fetch(uids, { envelope: true, source: true }, { uid: true })) {
         const remitente = msg.envelope.from?.[0]?.address || '';
-        const parsersDelRemitente = PARSERS.filter((p) => p.remitente.test(remitente));
-        if (parsersDelRemitente.length === 0) continue;
-
         const messageId = msg.envelope.messageId || `${msg.uid}@${remitente}`;
         if (yaProcesado(messageId)) continue;
+
+        const parsersDelRemitente = PARSERS.filter((p) => p.remitente.test(remitente));
+
+        if (parsersDelRemitente.length === 0) {
+          // Remitente desconocido (ni Chiletrabajos, Computrabajo, LinkedIn ni
+          // Trabajando.cl) -- puede ser una empresa escribiendo directo desde
+          // su propio ATS. Se lee el contenido igual para poder avisar si
+          // parece de una postulacion, en vez de descartarlo sin mirarlo.
+          const parsed = await simpleParser(msg.source);
+          const texto = textoDelMail(parsed);
+          await avisarMailNoReconocido(remitente, parsed.subject || '', texto);
+          marcarProcesado(messageId);
+          continue;
+        }
 
         const parsed = await simpleParser(msg.source);
         const texto = textoDelMail(parsed);
@@ -163,6 +195,7 @@ async function sincronizarEmails() {
 
         if (!datos) {
           console.warn(`[email-sync] Mail de ${remitente} no matcheo ningun formato conocido (asunto: "${parsed.subject}")`);
+          await avisarMailNoReconocido(remitente, parsed.subject || '', texto);
           marcarProcesado(messageId);
           continue;
         }

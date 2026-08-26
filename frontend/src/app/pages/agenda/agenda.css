@@ -40,12 +40,11 @@
 /* layout */
 .agenda-layout {
   display: flex;
+  flex-direction: column;
   gap: 1.4rem;
-  align-items: flex-start;
 }
 
 .calendar-card {
-  flex: 1.7;
   padding: 1.6rem 1.7rem 1.8rem;
   position: relative;
   background: oklch(97% 0.022 325 / 0.75);
@@ -243,7 +242,6 @@
 
 /* notes panel */
 .notes-panel {
-  flex: 1;
   padding: 1.5rem 1.5rem 1.1rem;
   position: relative;
   overflow: hidden;
@@ -286,7 +284,7 @@
 .notes-lines textarea {
   display: block;
   width: 100%;
-  min-height: 19.3rem;
+  min-height: 8.7rem;
   border: none;
   background: transparent;
   resize: none;

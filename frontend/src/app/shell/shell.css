@@ -25,6 +25,7 @@
   padding: 1.6rem 1.1rem;
   position: relative;
   z-index: 2;
+  overflow-y: auto;
 }
 
 .brand {
@@ -229,4 +230,219 @@
   overflow-y: auto;
   padding: 2.4rem 3rem 3rem;
   position: relative;
+}
+
+.annie-card {
+  background: linear-gradient(160deg, var(--accent-purple-deep) 0%, var(--accent-purple) 55%, var(--accent-pink-deep) 100%);
+  border-radius: 18px;
+  padding: 0.9rem;
+  margin: 1.4rem 0 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  box-shadow: 0 14px 30px -16px rgba(107, 50, 176, 0.55);
+}
+
+.annie-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.annie-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+}
+
+.annie-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.annie-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.annie-voz-toggle {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.annie-voz-toggle:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.annie-name {
+  color: white;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.annie-status {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.66rem;
+}
+
+.annie-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.annie-chip {
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 0.45rem 0.6rem;
+  border-radius: 12px;
+}
+
+.annie-chip.chip-oferta {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.annie-hilo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.annie-msg {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  align-self: flex-start;
+  max-width: 92%;
+}
+
+.annie-msg.propio {
+  background: rgba(20, 6, 40, 0.28);
+  align-self: flex-end;
+}
+
+.annie-aviso {
+  margin: 0;
+  font-size: 0.68rem;
+  color: white;
+  background: rgba(20, 6, 40, 0.3);
+  padding: 0.4rem 0.6rem;
+  border-radius: 10px;
+}
+
+.annie-form {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.annie-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+  font-size: 0.75rem;
+  font-family: 'Manrope', sans-serif;
+  outline: none;
+}
+
+.annie-form input::placeholder {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.annie-form input:focus {
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.annie-send {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.annie-send:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.annie-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.annie-mic {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.annie-mic:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.annie-mic:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.annie-mic.activo {
+  background: var(--coral-deep);
+  animation: annie-mic-pulso 1.1s ease-in-out infinite;
+}
+
+@keyframes annie-mic-pulso {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
 }

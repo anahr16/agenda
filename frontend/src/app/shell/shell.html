@@ -32,6 +32,73 @@
       }
     }
 
+    <div class="annie-card">
+      <div class="annie-header">
+        <div class="annie-avatar"><img src="/img/annie.jpg" alt="Annie" /></div>
+        <div class="annie-info">
+          <span class="annie-name">Annie</span>
+          <span class="annie-status">{{ annieEscribiendo() ? 'Escribiendo…' : 'Tu asistente' }}</span>
+        </div>
+        <button
+          type="button"
+          class="annie-voz-toggle"
+          (click)="toggleVoz()"
+          [title]="vozActivada() ? 'Silenciar a Annie' : 'Activar la voz de Annie'"
+        >
+          @if (vozActivada()) {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          } @else {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          }
+        </button>
+      </div>
+
+      @if (actividadReciente().length > 0) {
+        <div class="annie-chips">
+          @for (item of actividadReciente(); track item.id) {
+            <div class="annie-chip" [class]="'chip-' + item.tipo">{{ item.texto }}</div>
+          }
+        </div>
+      }
+
+      @if (annieMensajes().length > 0) {
+        <div class="annie-hilo">
+          @for (m of annieMensajes(); track $index) {
+            <p class="annie-msg" [class.propio]="m.autor === 'usuaria'">{{ m.texto }}</p>
+          }
+        </div>
+      }
+      @if (annieError()) {
+        <p class="annie-aviso">{{ annieError() }}</p>
+      }
+
+      <form class="annie-form" (ngSubmit)="enviarAnnie()">
+        @if (reconocimientoDisponible) {
+          <button
+            type="button"
+            class="annie-mic"
+            [class.activo]="escuchando()"
+            (click)="escucharPorVoz()"
+            [disabled]="annieEscribiendo() || escuchando()"
+            title="Hablarle a Annie"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+        }
+        <input
+          type="text"
+          placeholder="Escríbele algo a Annie…"
+          [(ngModel)]="annieInput"
+          name="annieInput"
+          [disabled]="annieEscribiendo()"
+          autocomplete="off"
+        />
+        <button type="submit" class="annie-send" [disabled]="annieEscribiendo() || !annieInput.trim()" title="Enviar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+    </div>
+
     <div class="sidebar-spacer"></div>
 
     @if (pushDisponible) {

@@ -112,4 +112,38 @@ const PARSERS = [
   },
 ];
 
+// Red de contencion para empresas que escriben directo desde su propio ATS
+// (ej. TicMoAI) en vez de a traves de uno de los portales de arriba: esos
+// mails no matchean ningun remitente conocido, asi que nunca se agregaria
+// una regla especifica para cada empresa nueva. En cambio, si el mail
+// *parece* de un proceso de postulacion (por estas palabras clave), se
+// avisa por Telegram en vez de descartarlo en silencio -- ver emailSync.js.
+const PALABRAS_CLAVE_LABORAL = [
+  'postulaci',
+  'candidatura',
+  'entrevista',
+  'proceso de selecci',
+  'vacante',
+  'oportunidad laboral',
+  'recursos humanos',
+  'talent acquisition',
+  'reclutamiento',
+  'tu perfil',
+  'hoja de vida',
+  'curriculum',
+  'cv adjunto',
+  'hiring',
+  'recruiter',
+  'job application',
+  'your application',
+  'your profile',
+  'we will review',
+];
+
+function pareceLaboral(asunto, texto) {
+  const contenido = `${asunto} ${texto}`.toLowerCase();
+  return PALABRAS_CLAVE_LABORAL.some((palabra) => contenido.includes(palabra));
+}
+
 module.exports = PARSERS;
+module.exports.pareceLaboral = pareceLaboral;

@@ -44,7 +44,6 @@ interface CeldaCalendario {
   styleUrl: './agenda.css',
 })
 export class Agenda implements OnInit {
-  postulaciones = signal<Postulacion[]>([]);
   mesVisible = signal<Date>(inicioDeMes(new Date()));
   fechaSeleccionada = signal<string>(toFechaInput(new Date()));
   nota = signal<string>('');
@@ -59,7 +58,7 @@ export class Agenda implements OnInit {
     inicioGrilla.setDate(primerDia.getDate() - diaSemanaPrimero);
 
     const entrevistasPorFecha = new Map<string, Postulacion[]>();
-    for (const p of this.postulaciones()) {
+    for (const p of this.postulacionesService.postulaciones()) {
       if (!p.fecha_entrevista) continue;
       const key = toFechaInput(parseUtc(p.fecha_entrevista));
       const lista = entrevistasPorFecha.get(key) ?? [];
@@ -115,13 +114,13 @@ export class Agenda implements OnInit {
 
   proximaEntrevistaChip = computed(() => {
     const ahora = new Date();
-    const proxima = this.postulaciones()
+    const proxima = this.postulacionesService.postulaciones()
       .filter((p) => p.fecha_entrevista && parseUtc(p.fecha_entrevista) >= ahora)
       .sort((a, b) => a.fecha_entrevista!.localeCompare(b.fecha_entrevista!))[0];
     if (!proxima) return null;
     const fecha = parseUtc(proxima.fecha_entrevista!);
     const esHoy = toFechaInput(fecha) === toFechaInput(ahora);
-    const hora = fecha.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+    const hora = fecha.toLocaleTimeString('es-419', { hour: '2-digit', minute: '2-digit' });
     return {
       empresa: proxima.empresa,
       cuando: esHoy ? `Hoy · ${hora}` : `${DIAS_SEMANA[(fecha.getDay() + 6) % 7]} ${fecha.getDate()} · ${hora}`,
@@ -131,7 +130,7 @@ export class Agenda implements OnInit {
   constructor(private postulacionesService: PostulacionesService) {}
 
   ngOnInit(): void {
-    this.postulacionesService.listar().subscribe((postulaciones) => this.postulaciones.set(postulaciones));
+    this.postulacionesService.listar().subscribe({ error: () => {} });
     this.cargarNota();
   }
 
@@ -151,7 +150,7 @@ export class Agenda implements OnInit {
   }
 
   hora(iso: string): string {
-    return parseUtc(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+    return parseUtc(iso).toLocaleTimeString('es-419', { hour: '2-digit', minute: '2-digit' });
   }
 
   private cargarNota(): void {

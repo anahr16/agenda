@@ -1,25 +1,7 @@
-const path = require('path');
 const cron = require('node-cron');
-const { initializeApp, cert } = require('firebase-admin/app');
 const { getMessaging } = require('firebase-admin/messaging');
 const db = require('./db');
-
-let firebaseApp = null;
-let avisoFirebaseMostrado = false;
-
-function getFirebaseApp() {
-  if (firebaseApp) return firebaseApp;
-  const rutaCredenciales = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (!rutaCredenciales) return null;
-  try {
-    const serviceAccount = require(path.resolve(rutaCredenciales));
-    firebaseApp = initializeApp({ credential: cert(serviceAccount) });
-    return firebaseApp;
-  } catch (err) {
-    console.error('[recordatorios] No se pudo inicializar Firebase:', err.message);
-    return null;
-  }
-}
+const { getFirebaseApp, avisoFirebaseNoConfigurado } = require('./firebaseApp');
 
 function formatoUTC(date) {
   return date.toISOString().slice(0, 19);
@@ -28,12 +10,7 @@ function formatoUTC(date) {
 async function enviarPush(fcmToken, cita) {
   const app = getFirebaseApp();
   if (!app) {
-    if (!avisoFirebaseMostrado) {
-      console.warn(
-        '[recordatorios] FIREBASE_SERVICE_ACCOUNT_PATH no configurado: los recordatorios se loguean pero no se envian push reales.'
-      );
-      avisoFirebaseMostrado = true;
-    }
+    avisoFirebaseNoConfigurado('recordatorios');
     console.log(`[recordatorios] (simulado) cita #${cita.id} con ${cita.cliente_nombre} a las ${cita.inicio}`);
     return;
   }

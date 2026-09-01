@@ -57,7 +57,37 @@ fotógrafos, etc.).
       propio recordatorio por Telegram — ver sección propia más abajo
 - [x] Resumen semanal por Telegram (domingos) con el pulso general de la
       búsqueda laboral — ver sección propia más abajo
-- [ ] App Android (Java + Retrofit) — migración futura de la web
+- [x] Diseños hechos a mano por Ana (Procreate) convertidos a stickers:
+      patrón de flores de fondo en toda la app + lettering en login/sidebar
+      — ver "Diseño: stickers hechos a mano por Ana" más abajo
+- [x] Pantalla de Configuración (perfil con nombre/email/contraseña/foto,
+      notificaciones push on/off, idioma español/inglés con traducción
+      completa de la interfaz, tema claro/oscuro) — ver secciones propias
+      más abajo, backend y frontend
+- [x] Web responsive (iPhone/iPad/tablet) — ver "Responsive (mobile/tablet)" más abajo
+- [x] App Android (Kotlin + Jetpack Compose + Retrofit) — paridad completa
+      con la web (Agenda, Postulaciones, Annie chat+voz, Configuración,
+      push real vía Firebase) — ver "App Android" más abajo
+- [x] Multi-tenancy real en el backend (`usuario_id` en postulaciones/
+      eventos/actividad, cuenta "dueña" para los cron de un solo mailbox/
+      Telegram) + límite diario de mensajes de Annie por cuenta — pasos
+      previos para poder publicar la app públicamente, ver "Publicación en
+      Google Play" más abajo
+- [ ] Publicación pública en Google Play — código listo (firma de release,
+      ProGuard, multi-tenancy, assets de la ficha); falta el hosting real
+      del backend y los pasos de Play Console que necesitan a una persona
+      (ver "Publicación en Google Play" más abajo)
+- [x] Perfil/CV por cuenta (`usuarios.perfil_cv`, ya no un único
+      `perfil.txt` global) — la compatibilidad con IA tiene sentido para
+      cualquier cuenta — ver "Perfil/CV y compatibilidad por cuenta"
+- [ ] Compatibilidad 100% automática para Computrabajo (conectar la
+      cuenta real de Ana vía sesión exportada, sin tocar su login de
+      Google) — mecanismo de cookies verificado en vivo, falta mapear el
+      panel de "mis postulaciones" en sí; pausado por un límite de
+      velocidad/anti-bot del lado de Computrabajo — ver "Computrabajo:
+      sesión conectada" más abajo
+      (cuenta de desarrollador, testing cerrado, política de privacidad) —
+      ver "Publicación en Google Play" más abajo
 
 ## Backend (`backend/`)
 
@@ -103,15 +133,68 @@ sube a git). El esquema (tablas `clientes`, `citas`, `usuarios`,
 y se aplica automáticamente cada vez que arranca el server.
 
 El perfil de la usuaria (CV/experiencia, usado para calcular compatibilidad
-con las ofertas) vive aparte, en `backend/perfil.txt` — texto plano, no en
-SQLite y no se sube a git (tiene datos personales). Ver sección de
-compatibilidad más abajo.
+con las ofertas) **ya no vive en `backend/perfil.txt`** — pasó a
+`usuarios.perfil_cv` (2026-09-01, ver "Perfil/CV y compatibilidad por
+cuenta" más abajo), para que cualquier cuenta tenga su propio perfil, no
+solo la dueña. El archivo `perfil.txt` fue el origen del CV de Ana,
+migrado una sola vez a su fila de `usuarios` al hacer este cambio.
 
 ### Autenticación
 
 Login simple para el dueño de la agenda con email + password (hasheado con
 bcrypt) y token JWT (30 días de vigencia). Las rutas `/clientes` y `/citas`
-requieren el header `Authorization: Bearer <token>`; `/auth` es pública.
+requieren el header `Authorization: Bearer <token>`; `/auth` es pública
+(salvo `/auth/perfil`, `/auth/email`, `/auth/password`, `/auth/foto-perfil`
+y `/auth/fcm-token`, que sí lo requieren). Cambiar el email devuelve un
+token nuevo porque el JWT lleva el email embebido — ver sección de
+"Perfil y preferencias" más abajo.
+
+### Multi-tenancy (cuentas públicas)
+
+Hasta este punto la app tenía exactamente una cuenta real, y `postulaciones`/
+`eventos`/`actividad_postulaciones`/`postulaciones_emails_revision` eran
+datos globales — cualquiera que se registrara vería (y podría editar/borrar)
+todo lo de todos. Pensando en publicar la app Android públicamente en Play
+Store, esto pasó a ser un problema real, no solo teórico.
+
+- **Migración** (`db.js`, mismo patrón idempotente `PRAGMA table_info` +
+  `ALTER TABLE` que ya usa el archivo): las 4 tablas de arriba suman
+  `usuario_id INTEGER`, con backfill automático (una sola vez, dentro del
+  mismo guard que agrega la columna) asignando todas las filas viejas a la
+  cuenta que ya existía. `usuarios` suma `es_owner INTEGER DEFAULT 0`,
+  puesto en 1 solo para esa cuenta.
+- **Rutas**: `postulaciones.js`, `eventos.js`, `mailsRevision.js`,
+  `recordatoriosVoz.js` y los tool-use de `annie.js` (`agendar_entrevista`,
+  `crear_evento`, el contexto de postulaciones que arma el prompt, el
+  resumen de "mientras no estuviste") ahora filtran/graban todo por
+  `req.usuario.id` — antes ni siquiera los `GET/PUT/DELETE /:id`
+  verificaban dueño, cualquier cuenta logueada podía tocar el id de
+  cualquier otra.
+- **`clientes`/`citas`** (el turnero original, sin uso real hoy): en vez de
+  migrarlos por completo, nuevo middleware `middleware/requireOwner.js`
+  (403 si `usuarios.es_owner` no es 1) montado sobre esas dos rutas en
+  `index.js` — cierra la fuga sin invertir en una migración completa de una
+  función que no está en uso.
+- **Cron jobs de un solo mailbox/Telegram, clavados a la cuenta dueña, NO
+  multi-tenant** (nuevo helper `ownerUsuario.js`, `obtenerIdDueña()`):
+  `emailSync.js` (un único IMAP), `recordatorios.js` (citas/clientes),
+  `recordatoriosEventos.js`, `recordatoriosPostulaciones.js` y
+  `resumenSemanal.js` (los 3 de Telegram, un único chat compartido) ahora
+  filtran sus queries por el `usuario_id` de la dueña en vez de barrer toda
+  la tabla, y el push de `emailSync.js`/`recordatorios.js` va solo al
+  `fcm_token` de la dueña en vez de a **todos** los usuarios con
+  notificaciones activas (bug real que hoy ya no importa porque hay una
+  sola cuenta, pero rompía en cuanto hubiera una segunda).
+- **`recordatoriosEntrevistas.js` sí quedó multi-tenant de verdad** (a
+  diferencia de los anteriores): como `postulaciones` ya tiene `usuario_id`
+  real para cualquier cuenta, cada recordatorio de entrevista por push se
+  manda al `fcm_token` de quien es dueña de esa postulación puntual, no
+  solo a la cuenta dueña del mailbox.
+- **Verificado en vivo**: se registró una cuenta de prueba y se confirmó
+  que ve Postulaciones/Agenda vacías, no puede leer/editar/borrar un id
+  real de la cuenta dueña (404), y recibe 403 en `/clientes`/`/citas` — sin
+  afectar los datos reales de la cuenta dueña. Cuenta de prueba borrada
+  después de confirmar.
 
 ### Endpoints
 
@@ -120,17 +203,22 @@ requieren el header `Authorization: Bearer <token>`; `/auth` es pública.
 | GET    | `/health`          | Chequeo de que el servidor está vivo |
 | POST   | `/auth/register`   | Crear usuario dueño (`email`, `password`) |
 | POST   | `/auth/login`      | Login, devuelve `{ token }`          |
-| PUT    | `/auth/fcm-token`  | Guardar el token FCM del dispositivo del dueño (requiere login) |
-| GET    | `/clientes`        | Listar clientes _(requiere login)_   |
-| GET    | `/clientes/:id`    | Obtener un cliente _(requiere login)_ |
-| POST   | `/clientes`        | Crear cliente (`nombre` obligatorio, `telefono` opcional) _(requiere login)_ |
-| PUT    | `/clientes/:id`    | Editar cliente _(requiere login)_    |
-| DELETE | `/clientes/:id`    | Borrar cliente _(requiere login)_    |
-| GET    | `/citas`           | Listar citas _(requiere login)_      |
-| GET    | `/citas/:id`       | Obtener una cita _(requiere login)_  |
-| POST   | `/citas`           | Crear cita (`cliente_id`, `inicio`, `fin` obligatorios; `estado` opcional, por defecto `confirmada`; `notas` opcional) _(requiere login)_ |
-| PUT    | `/citas/:id`       | Editar cita _(requiere login)_       |
-| DELETE | `/citas/:id`       | Borrar cita _(requiere login)_       |
+| PUT    | `/auth/fcm-token`  | Guardar el token FCM del dispositivo del dueño, o borrarlo mandando `fcm_token: null` (requiere login) |
+| GET    | `/auth/perfil`     | Datos de perfil y preferencias (`nombre`, `email`, `foto_perfil`, `idioma`, `tema`, `notificaciones_activas`) _(requiere login)_ |
+| PUT    | `/auth/perfil`     | Editar `nombre`/`idioma`/`tema`/`notificaciones_activas` (solo los campos presentes en el body) _(requiere login)_ |
+| PUT    | `/auth/email`      | Cambiar el email (`email`, `password_actual`). Devuelve `{ token }` nuevo _(requiere login)_ |
+| PUT    | `/auth/password`   | Cambiar la contraseña (`password_actual`, `password_nueva`) _(requiere login)_ |
+| POST   | `/auth/foto-perfil`| Subir la foto de perfil (`multipart/form-data`, campo `foto`). Devuelve `{ foto_perfil }` _(requiere login)_ |
+| GET    | `/clientes`        | Listar clientes _(requiere login + ser la cuenta dueña, ver "Multi-tenancy" arriba)_ |
+| GET    | `/clientes/:id`    | Obtener un cliente _(requiere login + dueña)_ |
+| POST   | `/clientes`        | Crear cliente (`nombre` obligatorio, `telefono` opcional) _(requiere login + dueña)_ |
+| PUT    | `/clientes/:id`    | Editar cliente _(requiere login + dueña)_    |
+| DELETE | `/clientes/:id`    | Borrar cliente _(requiere login + dueña)_    |
+| GET    | `/citas`           | Listar citas _(requiere login + dueña)_      |
+| GET    | `/citas/:id`       | Obtener una cita _(requiere login + dueña)_  |
+| POST   | `/citas`           | Crear cita (`cliente_id`, `inicio`, `fin` obligatorios; `estado` opcional, por defecto `confirmada`; `notas` opcional) _(requiere login + dueña)_ |
+| PUT    | `/citas/:id`       | Editar cita _(requiere login + dueña)_       |
+| DELETE | `/citas/:id`       | Borrar cita _(requiere login + dueña)_       |
 | GET    | `/postulaciones`      | Listar postulaciones de trabajo, ordenadas por `fecha_postulacion DESC, creado_en DESC` _(requiere login)_ |
 | GET    | `/postulaciones/stats`| Conteos por estado y por portal, para el panel de análisis _(requiere login)_ |
 | GET    | `/postulaciones/:id`  | Obtener una postulación _(requiere login)_ |
@@ -144,12 +232,46 @@ requieren el header `Authorization: Bearer <token>`; `/auth` es pública.
 | POST   | `/eventos`            | Crear evento (`titulo`, `fecha` obligatorios; `hora`, `notas`, `tipo` opcionales — `tipo` default `personal`) _(requiere login)_ |
 | PUT    | `/eventos/:id`        | Editar evento _(requiere login)_ |
 | DELETE | `/eventos/:id`        | Borrar evento _(requiere login)_ |
-| POST   | `/annie/chat`         | Chat con Annie (`mensaje`, `historial` opcional). Devuelve `{ respuesta, historial, acciones }` _(requiere login)_ |
-| POST   | `/annie/tts`          | Texto a voz de Annie vía ElevenLabs (`texto`). Devuelve el audio (`audio/mpeg`) _(requiere login)_ |
+| POST   | `/annie/chat`         | Chat con Annie (`mensaje`, `historial` opcional). Devuelve `{ respuesta, historial, acciones }`, o `429` si se agotó el límite diario _(requiere login, ver "Límite diario de Annie" más abajo)_ |
+| POST   | `/annie/tts`          | Texto a voz de Annie vía ElevenLabs (`texto`). Devuelve el audio (`audio/mpeg`), o `429` si se agotó el límite diario _(requiere login)_ |
 
 **Formato de fechas:** `inicio` y `fin` de una cita deben mandarse en UTC,
 formato ISO 8601 sin zona horaria, ej: `2026-08-22T10:00:00`. Es lo que
 compara el scheduler de recordatorios contra la hora actual.
+
+### Perfil y preferencias de usuario
+
+La pantalla de Configuración del frontend (botón de engranaje en la
+tarjeta de usuario del sidebar) agrega a `usuarios` las columnas `nombre`,
+`foto_perfil`, `idioma` (`'es'`/`'en'`, default `'es'`), `tema`
+(`'claro'`/`'oscuro'`, default `'claro'`) y `notificaciones_activas`
+(default activado) — mismo patrón de migración que el resto de las tablas
+en `backend/db.js`.
+
+**Foto de perfil:** `POST /auth/foto-perfil` recibe un `multipart/form-data`
+(vía `multer`) y guarda el archivo en `backend/uploads/perfil/` (no se sube
+a git — dato personal, igual criterio que `perfil.txt`), con nombre
+`usuario-<id>-<timestamp>.<ext>`; al subir una foto nueva se borra la
+anterior del mismo usuario. `backend/index.js` sirve esa carpeta como
+estático en `/uploads`, así el frontend arma la URL completa con
+`environment.apiUrl + foto_perfil`.
+
+**Notificaciones:** el toggle de Configuración reemplaza al viejo botón
+suelto "Activar recordatorios" del sidebar. Activarlo llama al mismo flujo
+de siempre (`PushService.pedirPermisoYRegistrar()`, permiso del navegador +
+registro del token FCM); desactivarlo manda `fcm_token: null` a
+`PUT /auth/fcm-token` para que los crons de recordatorios (`recordatorios.js`,
+`recordatoriosEntrevistas.js`) dejen de mandarle push a ese usuario.
+`notificaciones_activas` es la preferencia que ve la UI (para poder mostrar
+el estado del toggle sin depender de si el navegador todavía tiene el
+permiso), separada del detalle de si hay o no un `fcm_token` guardado.
+
+**Idioma de Annie:** `backend/routes/annie.js` le pasa el `idioma` guardado
+del usuario a `systemPrompt()` — si es `'en'`, le pide a Annie que responda
+en inglés en vez del español neutro de siempre. El resto de los avisos
+automáticos (Telegram, resumen semanal, parseo de emails de Postulaciones)
+siguen siempre en español: son avisos internos sobre correos que ya llegan
+en español, no interfaz de usuario.
 
 ### Recordatorios automáticos
 
@@ -343,6 +465,25 @@ tiene regla para ese dominio.
   que manda el portal — no es algo que se pueda arreglar del lado del
   parser sin heurísticas frágiles, así que puede haber postulaciones con
   el puesto con caracteres raros ocasionalmente.
+- **Computrabajo tiene una segunda plantilla de "vista" que no es la
+  transaccional de arriba**: una encuesta de seguimiento ("¿La empresa X
+  se comunicó contigo?", campaña `auto_cand_follow_company_contact_status`)
+  que igual confirma que la empresa vio el CV, pero sin el link "Nuevo
+  estado en..." que usa el otro parser. Sin una regla para esta plantilla
+  caía en la red de contención (bandeja de revisión + Telegram) pero
+  **nunca se convertía en un cambio de estado real** — la postulación se
+  quedaba en "enviada" y Annie nunca lo anunciaba (ni voz, ni push, ni el
+  resumen de "mientras no estuviste"), porque esos tres canales solo
+  disparan desde `registrarActividad()`, que solo se llama dentro de
+  `procesarCambioEstado()`. Se agregó una regla aparte en
+  `emailParsers.js` para esta plantilla (extrae la empresa del asunto y el
+  puesto del cuerpo, mapea siempre a `vista`); ojo con el word-wrap acá
+  también: "vio tu CV" a veces cae partido por un salto de línea justo
+  entre esas palabras, por eso el regex usa `\s+` en vez de espacios
+  literales entre cada palabra del ancla. Las 2 postulaciones ya afectadas
+  antes del fix (BCTecnología id 34, Clini id 36) se actualizaron a mano
+  una sola vez reproduciendo el mismo flujo (actividad + push + Telegram)
+  porque sus mails ya habían quedado marcados como procesados.
 - **Los ATS genéricos (SmartRecruiters, Pandape) solo cubren el mail de
   confirmación de postulación** (`nueva_postulacion`): si la empresa
   después manda novedades desde ese mismo ATS ("la empresa le envió un
@@ -377,6 +518,20 @@ el formulario de alta con el cuerpo del mail pegado en notas, para
 completar empresa/puesto a mano) o **"Descartar"** si no corresponde. Al
 guardar o descartar, la entrada se borra de la bandeja
 (`DELETE /mails-revision/:id`, `GET /mails-revision` para listarla).
+
+**Selección múltiple:** cada mail tiene un checkbox (más "Seleccionar
+todos"), y con al menos uno tildado aparecen dos botones — "Agregar todos"
+y "Descartar todos" — para actuar sobre varios de una vez, pedido
+explícito de la usuaria para no tener que abrir mail por mail. No hay
+endpoints bulk en el backend: `postulaciones.ts` orquesta las llamadas
+individuales existentes con `forkJoin` (una `POST /postulaciones` +
+`DELETE /mails-revision/:id` por mail para "agregar todos", una
+`DELETE /mails-revision/:id` por mail para "descartar todos") — con el
+volumen bajo de un uso personal no hace falta un endpoint bulk dedicado.
+"Agregar todos" no puede pedir empresa/puesto a mano uno por uno como en
+la carga individual, así que usa placeholders (`Sin identificar (dominio)`
+para empresa, el asunto del mail o "Sin especificar" para puesto) — quedan
+para completar después desde la edición inline de la tarjeta.
 
 **Configurar la contraseña de aplicación de Gmail:**
 
@@ -445,8 +600,9 @@ detalle expandido de la tarjeta, **y además** alimenta como señal a la
 probabilidad de llamada (punto anterior).
 
 Se calcula con IA (Claude, mismo modelo que usa Annie —
-`ANTHROPIC_API_KEY`): se le pasa el contenido de `backend/perfil.txt` (el
-perfil/CV de la usuaria, texto plano) más la `descripcion` de la oferta, y
+`ANTHROPIC_API_KEY`): se le pasa el `perfil_cv` de la cuenta dueña de esa
+postulación (ver "Perfil/CV y compatibilidad por cuenta" más abajo) más la
+`descripcion` de la oferta, y
 devuelve `{ compatibilidad: 0-100, razon: "una oración" }` vía tool use
 (`HERRAMIENTA_COMPATIBILIDAD`) para que la respuesta sea siempre ese
 formato. Si no hay `ANTHROPIC_API_KEY`, no hay `descripcion`, o la llamada
@@ -461,23 +617,110 @@ postulación si la `descripcion` cambió, y automáticamente cuando
 ver más arriba). **No** se recalcula solo por listar/abrir las
 postulaciones.
 
-**`backend/perfil.txt`:** el perfil/CV en texto plano contra el que se
-compara cada oferta — no vive en la base de datos para poder editarlo a
-mano directamente (por ejemplo si el CV cambia) sin tener que re-exportar
-un PDF ni escribir un script. No se sube a git (`backend/.gitignore`)
-porque tiene datos personales (nombre, mail, teléfono). Después de editar
-este archivo, o para rellenar postulaciones viejas creadas antes de este
-módulo, correr desde `backend/`:
+**`node recalcularCompatibilidad.js`** (desde `backend/`): recalcula
+`compatibilidad_oferta`/`compatibilidad_razon` para todas las postulaciones
+**de la cuenta dueña** que ya tienen `descripcion` cargada — útil después
+de editar el CV, o para rellenar postulaciones viejas creadas antes de
+este módulo. Es un script de consola, solo pensado para la dueña (usa
+`ownerUsuario.js`); el botón **"Recalcular compatibilidad"** en la
+pantalla de Postulaciones (`POST /postulaciones/recalcular-compatibilidad`)
+hace lo mismo pero para la cuenta logueada, cualquiera sea.
 
-```
-node recalcularCompatibilidad.js
-```
+### Perfil/CV y compatibilidad por cuenta (2026-09-01)
 
-Recalcula `compatibilidad_oferta`/`compatibilidad_razon` para todas las
-postulaciones que ya tienen `descripcion` cargada. Lo mismo está
-disponible como botón **"Recalcular compatibilidad"** en la pantalla de
-Postulaciones (`POST /postulaciones/recalcular-compatibilidad`), para no
-tener que abrir una terminal.
+Pedido explícito de la usuaria: que la compatibilidad automática tenga
+sentido para **cualquier cuenta**, no solo la suya — antes el perfil/CV
+usado para compararlo con cada oferta era un único archivo global
+(`backend/perfil.txt`), así que solo la cuenta dueña tenía compatibilidad
+real.
+
+- **`usuarios.perfil_cv TEXT`** (migración en `db.js`) reemplaza
+  `perfil.txt`. `backend/perfil.js` pasó de `leerPerfil()` a
+  `leerPerfil(usuarioId)`, leyendo esa columna. Todos los call-sites
+  (`routes/postulaciones.js`, `emailSync.js`, `recalcularCompatibilidad.js`)
+  ahora pasan el `usuario_id` correspondiente en vez de leer un único
+  archivo.
+- **`PUT /auth/perfil-cv`** (`{ perfil_cv: string }`) guarda el CV de la
+  cuenta logueada; `GET /auth/perfil` lo devuelve junto al resto del
+  perfil.
+- **Frontend web y Android**: nueva tarjeta "Mi CV / Perfil" en
+  Configuración, un `textarea` grande para pegar/editar el resumen de
+  experiencia — mismo patrón que el resto de los campos de esa pantalla.
+- El contenido de `perfil.txt` de Ana se migró una sola vez a su fila de
+  `usuarios` (mismo texto, no se perdió nada). El archivo sigue existiendo
+  en disco pero ya no lo lee ningún código.
+
+### Computrabajo: sesión conectada para compatibilidad automática (2026-09-01, en curso)
+
+Aun con `perfil_cv` por cuenta, la compatibilidad **solo se calcula sola
+cuando hay `descripcion`** -- y de los portales que reconoce el sistema,
+**Computrabajo es el único de verdad usado seguido por Ana y su mail de
+confirmación no trae el link a la oferta real** (confirmado leyendo un
+mail real: solo trae "ofertas recomendadas" similares, nunca la que se
+postuló -- `backend/jobPageScraper.js` ya documentaba esto). Sin ese link,
+no hay forma de traer la descripción sola, y hay que pegarla a mano para
+tener compatibilidad.
+
+Pedido explícito de la usuaria: conectar su cuenta real de Computrabajo
+para traer ese link desde su panel de "mis postulaciones" — **entendiendo
+y aceptando los riesgos** que se le plantearon (contraseña de un tercero
+en el server, navegador automatizado, riesgo de que Computrabajo detecte
+el patrón y bloquee/pida verificación en su cuenta real). Alcance
+explícito: **solo su cuenta por ahora**, no multi-tenant.
+
+**Giro importante durante la implementación:** la cuenta de Computrabajo
+de Ana (como la mayoría de sus portales) es de login federado — "Continúa
+con Google", sin contraseña propia en Computrabajo. Esto descarta
+automatizar el login desde cero (necesitaría la contraseña real de
+Google, mucho más sensible, y Google bloquea agresivamente logins
+automatizados) — la usuaria decidió priorizar no tocar su cuenta de
+Google.
+
+- **`usuarios.computrabajo_email`/`computrabajo_password_enc`** (migración
+  en `db.js`): para cuentas de portal con contraseña propia (no el caso de
+  Ana, pero se deja construido para cuando se generalice a otros
+  usuarios/portales). `PUT /auth/computrabajo` / `DELETE /auth/computrabajo`.
+- **`backend/encriptado.js`** (nuevo): AES-256-GCM nativo de Node (sin
+  dependencia nueva) para poder desencriptar la contraseña de verdad
+  cuando el scraper la necesite — a diferencia de bcrypt (contraseñas de
+  esta app, unidireccional). Clave en `.env`
+  (`CREDENCIALES_ENCRYPTION_KEY`, 32 bytes en hex).
+- **`usuarios.computrabajo_cookies_enc`** + **`PUT
+  /auth/computrabajo-cookies`**: el mecanismo real que sí aplica a Ana —
+  en vez de automatizar el login federado, la usuaria exporta las cookies
+  de una sesión ya logueada en **su propio navegador** (extensión
+  Cookie-Editor) y las pega en Configuración → Computrabajo. El sistema
+  nunca ve ni pide la contraseña de Google.
+- **`backend/computrabajoScraper.js`** (nuevo, Puppeteer): `verificarSesion(usuarioId)`
+  carga esas cookies en una página headless y confirma si la sesión sigue
+  viva navegando al panel del candidato (`aCookiePuppeteer()` traduce el
+  formato de export de Cookie-Editor -- `expirationDate`, `sameSite` en
+  minúscula -- al formato que espera `page.setCookie()`).
+- **Intento de ventana visible para un login asistido, descartado**: la
+  idea original era abrir una ventana real de Chromium para que la usuaria
+  hiciera el login de Google ahí mismo (sin que el sistema viera la
+  contraseña). No funcionó en este entorno: WSL no logra proyectar
+  ventanas gráficas al escritorio de Windows pese a que Chromium arranca
+  sin error puertas adentro (WSLg presente pero sin mostrar la ventana) —
+  se abandonó esa vía en vez de invertir tiempo en un problema de
+  infraestructura ajeno a la funcionalidad, y se pasó directo a la
+  exportación manual de cookies de arriba.
+- **Puppeteer instalado con fricción en este entorno**: la descarga de
+  Chromium requirió `npx puppeteer browsers install chrome` a mano (el
+  `npm install` no lo bajó solo) y una dependencia opcional (`yauzl`)
+  porque el sistema no tiene `unzip` instalado.
+- **Verificado en vivo**: `verificarSesion()` confirmó dos veces que la
+  sesión exportada autentica de verdad (no redirige a
+  `secure.computrabajo.com/Account`).
+- **Pendiente, pausado a propósito**: mapear la página real de "mis
+  postulaciones" (con los links reales) y el matching contra las
+  postulaciones ya cargadas por mail. Se pausó después de varias pruebas
+  seguidas en poco tiempo, que empezaron a recibir `403 Forbidden` —
+  patrón compatible con un límite de velocidad/anti-bot del lado de
+  Computrabajo reaccionando a la repetición, no un problema del código.
+  Antes de seguir: dejar pasar varias horas sin pedidos, y de ahí en más
+  probar de a un pedido bien espaciado por vez, nunca sesiones de prueba
+  seguidas como la de hoy.
 
 ### Agenda
 
@@ -514,32 +757,129 @@ usuaria, mismo supuesto que ya usa el resto de la app (`systemPrompt()` en
 `annie.js`). Si se edita la fecha/hora de un evento ya avisado, el
 recordatorio se re-arma solo.
 
+**Recordatorio por voz de Annie (extra, solo si la app está abierta):**
+Telegram (eventos) y push (entrevistas) son el canal principal porque no
+dependen de tener la pestaña abierta. Además de eso, `GET
+/recordatorios-voz/pendientes` (`backend/routes/recordatoriosVoz.js`,
+mismo criterio de ventana que los crons de arriba) es un endpoint que el
+frontend consulta con el mismo polling de 60s que ya usaba para novedades
+de postulaciones (`revisarRecordatoriosVoz()` en `shell.ts`) — si la app
+está abierta justo cuando cae un recordatorio, Annie además lo dice en voz
+alta (`anunciar()`, mismo mecanismo que usa para avisar cambios de estado).
+Usa columnas propias (`recordatorio_voz_enviado` en `eventos`,
+`recordatorio_voz_entrevista_enviado` en `postulaciones`), separadas de las
+de Telegram/push — un canal no reemplaza al otro, los dos se disparan
+igual.
+
 En el encabezado de Agenda también hay un chip de **"Próximo evento"**
 (`proximoEventoChip` en `agenda.ts`), al lado del de "Próxima entrevista",
 con el mismo criterio: el evento más cercano que todavía no pasó.
 
-**Vista mes**: grilla de 42 celdas (como antes), cada día muestra un chip
-de texto si tiene entrevista(s) y un puntito morado si tiene evento(s)
-(leyenda arriba del calendario). Al hacer click en un día se selecciona
-(se resalta) y se cargan sus notas/eventos/entrevistas abajo.
+**Layout tipo planner físico (`.planner-grid` en `agenda.css`):** rediseño
+pedido explícitamente por la usuaria a partir de una foto de referencia
+(un planner rosa de papel, `imagenes/Diseño I.png`) — una grilla de 2
+columnas con 5 cuadros, todos **del mismo tamaño** (`.planner-box`,
+`min-height: 24rem` compartido, contenido interno con `flex: 1` para
+llenar parejo aunque tengan cantidades de contenido distintas) y en este
+orden (pedido explícito, "notas de últimas"): **Calendario, Eventos del
+mes, Objetivos del mes, Una afirmación, Notas**. Con 5 cuadros en una
+grilla de 2 columnas el último (Notas) queda solo en su fila, del mismo
+tamaño que el resto, sin ocupar las dos columnas.
 
-**Vista semana**: un timeline con las horas de 7 a 22 en el eje vertical
-(`HORA_INICIO_SEMANA`/`HORA_FIN_SEMANA` en `agenda.ts`) y los 7 días de la
-semana como columnas. Los eventos con hora y las entrevistas se posicionan
-verticalmente según su horario (`posicionVertical()`, en base a
-`alturaHoraRem = 3` — si dos caen a la misma hora se superponen
-visualmente, no hay lógica de repartirlos en columnas, es un caso raro
-para un uso personal). Los eventos sin hora aparecen en una franja "todo
-el día" arriba de la columna, antes del timeline. La semana se calcula
-siempre a partir del día seleccionado (`fechaSeleccionada`), así que
-cambiar de vista mes ↔ semana mantiene el mismo día como referencia.
+1. **Calendario** (mes/semana, se mantiene el toggle): el mismo
+   componente de siempre, pero **"mapa de colores"** — ya no muestra texto
+   (título/hora) encima de cada día, solo puntos de color (vista mes,
+   `.day-dot`, un color por tipo de evento presente + dorado si hay
+   entrevista) o barras de color sin texto (vista semana, `.semana-barra`).
+   El detalle textual se sacó de acá y ahora vive en el cuadro de al lado.
+   Redimensionado bastante más chico que antes (`day-cell` de 3.7rem a
+   2.5rem) para entrar en media columna.
+2. **Eventos del mes**: reemplaza a las viejas tarjetas "Eventos de este
+   día" y "Entrevistas de este día" (ya no existen) — una sola lista
+   cronológica (`itemsDelMes` en `agenda.ts`) con TODO lo que tiene color
+   en el calendario de **todo el mes visible** (no solo el día
+   seleccionado), entrevistas y eventos mezclados, con el mismo color de
+   borde que su punto/barra en el calendario. El botón "Agregar evento" y
+   su formulario se movieron acá adentro.
+3. **Objetivos del mes**: lista nueva de `CANTIDAD_OBJETIVOS` (5) líneas de
+   texto libre, en `localStorage` con clave por mes (`agenda-objetivos-` +
+   `YYYY-MM` de `mesVisible()`), mismo patrón que la nota — no hay backend
+   para esto, es deliberadamente tan simple como la nota de texto.
+4. **Una afirmación**: dos partes — un sticker de lettering al azar
+   (`elegirSticker()` en `frontend/src/app/core/stickers.ts`) **y** un
+   textarea editable donde la usuaria escribe su propia afirmación (pedido
+   explícito: "que la persona pueda escribirla"), guardado en
+   `localStorage` con la misma clave por mes que Objetivos
+   (`agenda-afirmacion-YYYY-MM`).
+5. **Notas** (última): sin cambios de fondo — sigue siendo una nota de
+   texto libre **por día** (no por mes, se probó la otra opción y la
+   usuaria prefirió mantener el comportamiento existente) en
+   `localStorage`.
 
-Debajo del calendario, la tarjeta **"Eventos de este día"** lista los
-eventos del día seleccionado con acciones de editar/borrar, y el
-formulario de carga (mismo botón "Agregar evento") viene precargado con
-esa fecha. Las notas de texto libre por día siguen guardándose en
-`localStorage` del navegador (no en la base), sin cambios respecto a
-antes.
+**"Recorte de stickers" en cada cuadro (pedido explícito):** los 5 cuadros
+tienen un borde punteado tipo hoja de stickers (`outline` en vez de
+`border`, para no pisar el borde propio de `.card` — dibuja la línea de
+corte un poco por fuera), dos stickers de flores/concha sobresaliendo de
+las esquinas opuestas como pegados encima (`.box-sticker.tl`/`.br`,
+rotados, con `drop-shadow`) y un brillo dorado (`.box-sparkle`, mismo
+ícono de estrella que tenía el calendario viejo, ahora en los 5 cuadros).
+Los stickers de esquina rotan entre los 4 diseños de flores/concha
+(`stickerFlor(indice)`) para que cada cuadro use una combinación distinta
+y se vean varios a la vez, no siempre el mismo — pedido explícito ("usa
+las flores también", "pon más flores").
+
+**Efecto "sticker" en Notas y en la lista de eventos:** a diferencia del
+patrón de fondo tenue (`patron-flores.png`, opacidad muy baja, ver más
+arriba), acá los stickers de flores/concha
+(`frontend/public/img/stickers/`: `margarita`, `hibisco_morado`,
+`hibisco_rosa`, `shell2`) se muestran a **opacidad completa** — pedido
+explícito de la usuaria, que dibujó los diseños pensando en que se usaran
+así, no solo como textura difusa. En la lista de eventos, cada evento
+(no las entrevistas) tiene un sticker como botón de "check": clickearlo
+tacha el evento (efecto visual de planner, "marcar como hecho") — es
+**solo visual, no se persiste** (se resetea al recargar la página); si
+más adelante se pide que el estado "hecho" se guarde de verdad, hace
+falta una columna nueva en `eventos`.
+
+**Nota sobre el bug de fondo en los stickers "quitar fondo":** las 4
+imágenes de flores/concha se habían procesado en la sesión anterior con
+un algoritmo que dejaba un velo translúcido parejo en vez de transparencia
+real (mismo bug que se encontró y corrigió en el lettering, ver
+"Diseño: stickers hechos a mano por Ana" abajo) — invisible sobre fondo
+blanco pero muy visible mostradas a opacidad completa sobre las tarjetas
+de color de la app. Se reprocesaron con el algoritmo corregido antes de
+usarlas acá (el canal RGB no se había tocado, así que no hizo falta volver
+a las capturas originales).
+
+**Notas/Objetivos/Afirmación namespaced por cuenta (2026-09-01):** estas
+tres cosas viven solo en `localStorage` del navegador, nunca tocan el
+backend (claves `agenda-nota-<fecha>`, `agenda-objetivos-<mes>`,
+`agenda-afirmacion-<mes>`) -- pensando en publicar la app públicamente
+(ver "Publicación en Google Play" más abajo), si dos cuentas distintas
+comparten el mismo navegador/perfil, esas claves genéricas se pisarían
+entre cuentas. Se evaluaron dos opciones: migrar esto a un endpoint de
+backend por usuario (fix permanente, pero el backend sigue en la PC de
+Ana por ahora -- ver esa misma sección -- así que hasta que haya hosting
+real dejaría esta función inutilizable para cualquier cuenta pública fuera
+de su wifi), o namespacear las claves de `localStorage` por id de cuenta
+(arreglo inmediato, sigue andando para todo el mundo hoy mismo). Se eligió
+la segunda, revisitando la migración a backend cuando exista el hosting.
+
+- `agenda.ts`: nuevo `claveUsuario()` (id numérico del JWT vía
+  `AuthService.usuario()`, no el email, para que no cambie si se edita el
+  email después) sumado a las 3 claves.
+- Migración de una sola vez (`migrarClaveVieja()`): si la clave nueva
+  (con cuenta) todavía no existe pero hay algo guardado en la vieja (sin
+  cuenta), se copia el valor y se borra la vieja -- así las notas/
+  objetivos/afirmación reales de Ana no "desaparecen" el día que esto se
+  despliegue.
+- De paso, los signals compartidos (`PostulacionesService`,
+  `EventosService`, `PerfilService`, `MailsRevisionService`, todos
+  `providedIn: 'root'`) ahora se resetean en `Shell.salir()` -- antes,
+  si dos cuentas se logueaban seguido en la misma pestaña sin recargar la
+  página, la segunda podía ver por un instante (o, si el siguiente refresh
+  fallaba en silencio, indefinidamente) los datos cacheados de la cuenta
+  anterior.
 
 ### Recordatorios de seguimiento (Telegram)
 
@@ -633,6 +973,21 @@ herramientas:
   trabajo (llegaba a preguntar "¿cuál es la empresa?" para una cita
   personal) — el fix fue sumar la segunda herramienta y decirle cuándo usar
   cada una, no forzar la primera a cubrir los dos casos.
+
+**Le pregunta el nombre a la usuaria (una sola vez):** en `Shell`
+(`frontend/src/app/shell/shell.ts`), al arrancar la app Annie carga el
+perfil (`PerfilService`, ver Configuración) y saluda distinto según si ya
+hay un `nombre` guardado o no — pedido explícito de la usuaria. Sin
+nombre, después de "¡Bienvenida a tu Agenda Inteligente!" agrega "¿Cómo
+te gusta que te llame?" y pone `esperandoNombre` en `true`; el próximo
+mensaje que la usuaria mande por el chat (`enviarAnnie()`) se intercepta
+ahí mismo — no se manda al backend de Annie como una consulta normal,
+sino que se guarda directo como nombre (`PUT /auth/perfil`) y Annie
+confirma. Con nombre ya guardado, en cambio, saluda con "¿En qué puedo
+ayudarte hoy, {nombre}?" de una. Este flujo conversacional es aparte del
+campo "Nombre" que ya existe en Configuración (`perfil.service.ts`) — son
+dos caminos al mismo dato (`usuarios.nombre`), no hace falta usar el chat
+si ya se cargó a mano desde ahí.
 
 **Día de la semana calculado, no inferido por el modelo:** al probar
 `agendar_entrevista`/`crear_evento` con fechas relativas ("el lunes", "el
@@ -804,13 +1159,92 @@ chat).
 
 **Recordatorio de entrevistas (`backend/recordatoriosEntrevistas.js`):**
 mismo mecanismo que los recordatorios de citas (cron cada minuto, mismo
-`RECORDATORIO_MINUTOS_ANTES`, push por Firebase Cloud Messaging a todos los
-`fcm_token` guardados), pero mirando `postulaciones.fecha_entrevista` en vez
-de `citas.inicio`. Usa la columna `recordatorio_entrevista_enviado` (se
+`RECORDATORIO_MINUTOS_ANTES`, push por Firebase Cloud Messaging), pero
+mirando `postulaciones.fecha_entrevista` en vez de `citas.inicio` -- y, a
+diferencia de los demás cron de recordatorios (ver "Multi-tenancy" más
+arriba), a cada postulación se le avisa solo al `fcm_token` de quien es
+dueña de esa postulación puntual, no a todos los `fcm_token` guardados.
+Usa la columna `recordatorio_entrevista_enviado` (se
 resetea a `0` si se reprograma la entrevista, para que avise de nuevo). La
 inicialización de Firebase se compartió a `backend/firebaseApp.js` (antes
 vivía duplicada en `recordatorios.js`) porque el SDK de Firebase Admin
 tira error si se llama `initializeApp()` más de una vez.
+
+**Push para "nueva postulación"/"cambio de estado" detectados por mail, y
+resumen de "mientras no estuviste" en el saludo de Annie (2026-09-01):**
+pedido explícito de la usuaria tras notar que una postulación nueva
+detectada por `emailSync.js` solo avisaba por Telegram, nunca por push ni
+por voz.
+
+- `emailSync.js` ahora también manda push (mismo mecanismo que
+  `recordatoriosEntrevistas.js`: `getMessaging(app).send(...)`, solo al
+  `fcm_token` de la cuenta dueña del mailbox -- ver "Multi-tenancy" más
+  arriba) desde `procesarNuevaPostulacion` y `procesarCambioEstado`,
+  además del Telegram que ya mandaba.
+- Nueva tabla `actividad_postulaciones` (`postulacion_id`, `tipo`,
+  `mensaje`, `creado_en`) donde esas mismas dos funciones dejan registro de
+  lo que pasó. No se conectó al recordatorio por voz mientras la app está
+  abierta (`routes/recordatoriosVoz.js`) porque ese caso ya lo cubre
+  `detectarNovedades()` en `shell.ts` (compara la lista de postulaciones en
+  cada sondeo) — conectar los dos hubiera duplicado el aviso. Esta tabla es
+  solo para lo que pasó con la app **cerrada**, que `detectarNovedades()` no
+  puede ver (arranca sin lista previa contra la cual comparar en cada sesión
+  nueva).
+- Nuevo endpoint `GET /annie/actividad-pendiente`: devuelve los mensajes de
+  `actividad_postulaciones` posteriores a `usuarios.ultima_bienvenida`, y
+  de paso actualiza esa marca a `datetime('now')` -- así el próximo saludo
+  no repite lo ya contado. Si `ultima_bienvenida` todavía es `null`
+  (primera vez que se llama) se trae *todo* el historial en vez de nada;
+  un primer intento devolvía vacío en ese caso por error (`desde` quedaba
+  `null` y el query ni se ejecutaba), corregido con un valor por defecto
+  anterior a cualquier fecha real (`'0000-00-00'`).
+- `shell.ts`: `saludar()` pide `annieService.actividadPendiente()` en
+  paralelo al perfil y, si hay algo, lo suma al mensaje de bienvenida --
+  `"¡Bienvenida a tu Agenda Inteligente! ¿En qué puedo ayudarte hoy,
+  {{nombre}}? Mientras no estuviste, pasó esto: {{resumen}}."` (nueva clave
+  `shell.annie.mientrasNoEstuviste`, es.json/en.json). Se probó insertando
+  una fila de prueba a mano en `actividad_postulaciones` y confirmando que
+  el saludo la leyera -- funcionó, la fila de prueba se borró después.
+- Pendiente explícito (para más adelante, no parte de esta vuelta): la
+  misma conexión a push para Android, que sigue frenada en que la usuaria
+  agregue una app Android al proyecto Firebase `turnero-ec3cd` y pase
+  `google-services.json` (ver sección "App Android" más abajo). El saludo
+  de Annie en Android (`AnnieViewModel.saludar()`) tampoco tiene todavía el
+  resumen de "mientras no estuviste" -- ver "Sin migrar todavía" en esa
+  misma sección.
+
+**Límite diario de mensajes (2026-09-01):** Annie usa la clave de Anthropic
+y de ElevenLabs de la usuaria dueña -- pensando en publicar la app
+públicamente (ver "Publicación en Google Play" más abajo), cualquier cuenta
+nueva que hablara con Annie sin límite facturaría a su cuenta. Se eligió un
+tope diario por cuenta en vez de restringir Annie solo a la cuenta dueña o
+dejarla sin límite (las otras dos opciones evaluadas).
+
+- Nueva tabla `annie_uso_diario` (`usuario_id`, `fecha`, `chat_usados`,
+  `tts_usados`, clave primaria compuesta) y nuevo helper
+  `backend/annieLimite.js` (`puedeChatear`, `puedeHablar`, `registrarChat`,
+  `registrarTts`) — la fila del día se crea sola (`INSERT OR IGNORE`) la
+  primera vez que se consulta.
+- Topes configurables por `ANNIE_LIMITE_CHAT_DIARIO`/
+  `ANNIE_LIMITE_TTS_DIARIO` (`.env`), 40/día cada uno si no se configuran.
+- `POST /annie/chat` y `POST /annie/tts` chequean el cupo antes de llamar a
+  Anthropic/ElevenLabs y devuelven `429` (`{ error, limite_alcanzado: true
+  }`) si se agotó. El uso se registra recién después de una respuesta
+  **exitosa** -- un 502 de la IA no le gasta cupo a la usuaria por algo que
+  no fue su culpa.
+- Frontend, a propósito asimétrico: `/annie/tts` no necesitó ningún cambio
+  ni en web ni en Android -- ambos ya caían solos a la voz gratuita del
+  sistema ante cualquier falla de TTS, así que un 429 ahí ya es invisible.
+  `/annie/chat` sí necesitaba distinguir este caso del error genérico
+  ("Annie no pudo responder"): nueva clave i18n
+  `shell.annie.limiteAlcanzado` (es.json/en.json) usada en `shell.ts`
+  cuando `err.status === 429`, y una rama equivalente en
+  `AnnieViewModel.kt` (Android) para `HttpException` con código 429.
+- Verificado de punta a punta sin gastar mensajes reales de Anthropic: se
+  probaron los contadores de `annieLimite.js` directo contra una cuenta de
+  prueba (sin pasar por la IA), y una sola vez sí contra el endpoint real
+  forzando el cupo de una cuenta de prueba al límite para confirmar el
+  `429` real -- cuenta y filas de prueba borradas después.
 
 ### Nota sobre hot-reload en WSL
 
@@ -838,9 +1272,10 @@ sin problemas.
 
 Angular standalone (sin server-side rendering). Pantallas: login/registro
 del dueño, clientes (alta/edición/borrado), agenda (vista día/semana,
-alta/edición/cancelación/borrado de citas, botón para activar los
-recordatorios push del navegador) y postulaciones (alta/edición/borrado,
-filtro por estado y panel con conteos/porcentajes por estado).
+alta/edición/cancelación/borrado de citas), postulaciones (alta/edición/
+borrado, filtro por estado y panel con conteos/porcentajes por estado) y
+configuración (perfil, notificaciones, idioma, tema — ver sección propia
+más abajo).
 
 ### Cómo correrlo
 
@@ -859,7 +1294,7 @@ login ("No tengo cuenta todavía").
 | Campo | Descripción |
 |-------|-------------|
 | `apiUrl` | URL del backend. Default `http://localhost:4000`. |
-| `firebase` | Config del proyecto Firebase (Configuración del proyecto → General → Tus apps → agregar app Web). Mientras quede vacío, el botón de recordatorios se oculta. |
+| `firebase` | Config del proyecto Firebase (Configuración del proyecto → General → Tus apps → agregar app Web). Mientras quede vacío, el toggle de notificaciones de la pantalla de Configuración se oculta. |
 | `vapidKey` | Clave VAPID del proyecto (Configuración del proyecto → Cloud Messaging → Certificados push web). |
 
 **Importante:** `public/firebase-messaging-sw.js` (el service worker que
@@ -869,6 +1304,82 @@ importar `environment.ts`. Es el mismo proyecto de Firebase que ya se
 configuró para el backend (`FIREBASE_SERVICE_ACCOUNT_PATH`), solo que acá
 se usan las credenciales públicas de la app Web en vez de la cuenta de
 servicio.
+
+### Pantalla de Configuración (perfil, notificaciones, idioma, tema)
+
+Botón de engranaje en la tarjeta de usuario del sidebar (`shell.html`),
+lleva a `/configuracion` (`frontend/src/app/pages/configuracion/`). Junta
+cuatro cosas independientes que antes no existían:
+
+- **Perfil:** nombre, foto de perfil (input de archivo, sube a
+  `POST /auth/foto-perfil`, se ve en el sidebar y en la propia pantalla) y
+  cambio de email (pide la contraseña actual). Cambiar la contraseña vive
+  en su propio formulario separado (`PUT /auth/password`).
+- **Notificaciones:** un solo toggle on/off, ver detalle en la sección de
+  backend ("Perfil y preferencias de usuario" más arriba) — reemplaza al
+  botón "Activar recordatorios" que antes vivía suelto en el sidebar.
+- **Idioma:** español/inglés, con traducción completa de la interfaz (no
+  solo la preferencia guardada) — ver "Traducción (i18n)" más abajo.
+- **Tema:** claro/oscuro, aplicado a toda la app — ver "Tema claro/oscuro"
+  más abajo.
+
+`frontend/src/app/core/perfil.service.ts` centraliza todo esto: un signal
+`perfil` a nivel servicio (mismo patrón que `PostulacionesService`),
+cargado con `GET /auth/perfil` al entrar a la app (`Shell.ngOnInit`).
+Cuando `perfil.tema`/`perfil.idioma` cambian (al guardar en Configuración,
+o al cargar el perfil al iniciar sesión), el servicio aplica el efecto
+correspondiente él mismo (atributo `data-theme` en `<html>` / `TranslateService.use()`)
+en vez de que cada pantalla tenga que acordarse de hacerlo.
+
+### Traducción (i18n)
+
+Español e inglés, con **traducción completa de la interfaz** (no solo la
+fecha/hora) — se evaluó guardar nomás la preferencia sin traducir nada,
+pero se optó por la traducción real. Se usa `@ngx-translate/core` +
+`@ngx-translate/http-loader` (permite cambiar de idioma en caliente sin
+recompilar, a diferencia de `@angular/localize`, que arma un build por
+idioma) — provider en `app.config.ts`, archivos de traducción en
+`frontend/public/i18n/es.json` y `en.json`, namespaced por pantalla
+(`login.*`, `shell.*`, `agenda.*`, `postulaciones.*`, `clientes.*`,
+`configuracion.*`, `comun.*` para lo compartido). En las plantillas, cada
+string estático pasa por el pipe `| translate`; los mensajes armados en
+código (`confirm()`, errores, las etiquetas de estado/tipo de evento, los
+nombres de días/meses de Agenda) usan `translateService.instant('clave', { parametros })`.
+
+Los `toLocaleDateString`/`toLocaleString` y el `lang` de
+`SpeechRecognition`/`speechSynthesis` (voz de Annie, dictado por voz) usan
+`PerfilService.localeDeIdioma()` (`es-419` / `en-US`) en vez de tener
+`'es-419'` hardcodeado como antes. El idioma de las respuestas de **Annie**
+también sigue la preferencia (ver `systemPrompt()` en `backend/routes/annie.js`,
+sección de backend). Lo que **no** se tradujo, a propósito: los avisos de
+Telegram, el resumen semanal y el parseo de emails de Postulaciones — son
+procesos internos sobre correos que ya llegan en español, no interfaz.
+
+### Tema claro/oscuro
+
+Toggle en Configuración, guardado como preferencia de cuenta (columna
+`tema` en `usuarios`, no algo local del navegador) y aplicado a **toda la
+app**, no solo a la pantalla nueva. Mecanismo: `PerfilService` pone
+`data-theme="dark"` (u omite el atributo para claro) en `document.documentElement`;
+`frontend/src/styles.css` redefine ahí las variables de color ya
+existentes (`--ink`, `--bg`, `--surface`, etc.), así que la mayoría de
+`.card`/textos/fondos se resuelven solos por usar esas variables. Para los
+efectos "glass" (`rgba(255,255,255,…)`, `backdrop-filter`) y paneles con
+colores `oklch(...)` fijos que asumían fondo claro (sidebar, login,
+calendario de Agenda, bandeja de revisión y buscador de Postulaciones), se
+agregó un bloque `:host-context([data-theme='dark'])` en el CSS de cada
+componente — mecanismo estándar de Angular para que un componente con view
+encapsulation reaccione a un atributo puesto en un ancestro (`<html>`)
+fuera de su propio árbol. Los colores de marca/estado intencionales (rosa,
+morado, dorado, los pills de estado de Postulaciones) no cambian entre
+temas — son chips pastel con texto oscuro, se leen bien sobre cualquier
+fondo.
+
+Para evitar el flash de tema claro al recargar la página (antes de que
+`GET /auth/perfil` responda), `main.ts` aplica de entrada el valor
+cacheado en `localStorage` (`agenda_tema`, misma idea que `agenda_idioma`
+para el idioma) — mismo patrón que ya usaban otras preferencias del
+proyecto (`annie_voz_activada` en `shell.ts`).
 
 ### Tipografía de títulos (`.display`)
 
@@ -882,10 +1393,949 @@ commiteado al repo, a diferencia de una fuente anterior que se probó y se
 descartó por licencia de solo uso personal). Texto de la licencia en
 `Aclonica-LICENSE.txt`, al lado del archivo de la fuente.
 
-### Sobre la migración futura a Android
+### Diseño: stickers hechos a mano por Ana
 
-Esta web es intencionalmente una capa fina sobre la misma API
-(`backend/`) que va a usar la futura app Android — mismos endpoints, mismo
-login, mismo formato de fechas. Migrar más adelante implica reimplementar
-estas mismas pantallas en Java + Retrofit; el backend no debería necesitar
-cambios.
+La app usa diseños dibujados por Ana en Procreate (capturas originales en
+`imagenes/Diseño/`, fuera del repo) convertidos a PNG transparente:
+
+- **Patrón de fondo** (`frontend/public/img/patron-flores.png`): un tile de
+  900×900 con 4 motivos (margarita, dos hibiscos y una concha) a opacidad
+  muy baja, aplicado como `background-image` + `background-repeat: repeat`
+  en `.main` (`frontend/src/app/shell/shell.css`) — se repite detrás de
+  todas las páginas. El tile en sí no tiene costuras (un motivo no queda
+  cortado al repetirse), pero cuando el contenido de una página termina a
+  mitad de un mosaico, la flor que cae justo ahí se corta de golpe contra
+  el borde de la página (reportado por la usuaria con una captura real).
+  `.main::after` agrega un degradé de 9rem hacia `var(--bg)` pegado al
+  fondo de `.main` para disimular ese corte en vez de dejarlo en seco —
+  como `.main` tiene `overflow-y: auto`, el `bottom:0` del degradé cae al
+  final de todo el contenido scrolleable, no solo del viewport visible.
+- **Stickers de flores/concha** (`frontend/public/img/stickers/`:
+  `margarita`, `hibisco_morado`, `hibisco_rosa`, `shell2.png`), a opacidad
+  **completa** (a diferencia del patrón de fondo) — el pool "genérico" que
+  se usa en todos lados como decoración puntual, porque se reconocen bien
+  como forma aunque sean chicos:
+  - **Login**: se probó (2 al azar en las esquinas del panel morado) y se
+    sacó por pedido explícito de la usuaria ("no quedó bien, sacalos") —
+    `login.ts`/`.html`/`.css` ya no importan nada de `core/stickers.ts`,
+    el panel morado quedó solo con los blobs decorativos originales.
+  - **Sidebar** (`shell.ts`/`.html`/`.css`): 2 al azar por carga (antes 1
+    sola — pedido explícito, "poné más cosas, no solo la almeja"),
+    superpuestas en `.sidebar-spacer` (el hueco flexible entre el nav y la
+    tarjeta de usuario) en distinto tamaño/posición/rotación, más 3
+    brillitos (`.sidebar-sparkle`, el mismo ícono de estrella que ya usan
+    los cuadros de Agenda) dorado/morado alrededor.
+  - **Agenda** (`agenda.ts`/`.html`/`.css`): en los 5 cuadros del layout
+    tipo planner (dos por cuadro, en las esquinas — ver sección Agenda) y
+    como botón de "check" clickeable de cada evento en "Eventos del mes".
+
+  Login y sidebar usaban antes el pool de lettering (frases) en vez de
+  flores — se cambió porque una palabra como "Auténtica" recortada chica no
+  se lee ni se reconoce como sticker a simple vista (pedido explícito de la
+  usuaria: "no puedes literalmente hacer stickers con 'auténtica', no se
+  distinguen"). El lettering se dejó únicamente donde el texto va grande y
+  es el protagonista del cuadro (ver más abajo).
+- **Lettering** (`frontend/public/img/lettering/`: `hello`, `aloha`,
+  `beautiful`, `poderosa`, `autentica`, `eres-genial.png`): 6 frases
+  sueltas, a opacidad casi completa. Ya no se usan como sticker decorativo
+  chico (ver arriba) — el único lugar donde quedan es el cuadro "Una
+  afirmación" de Agenda, grande y pensado para leerse, un diseño al azar
+  por carga.
+
+  `frontend/src/app/core/stickers.ts` centraliza los dos pools
+  (`FLORES`/`LETTERING`) y los helpers para elegir al azar
+  (`elegirFlor()`/`elegirSticker()`, más las variantes que eligen varios
+  sin repetir), compartido entre login, sidebar y Agenda para no duplicar
+  las listas en cada lugar que las usa.
+
+**Procesamiento de las capturas** (recorte + quitar fondo) se hizo con un
+script Python + Pillow ad-hoc, en un venv aislado fuera del repo (no se
+agregó Python como dependencia del proyecto). El fondo del papel de
+Procreate no es blanco puro (`~(255,254,234)` para el lettering, un blanco/
+gris con ruido de compresión para las flores) — quitar el fondo comparando
+cada pixel contra un umbral de distancia/saturación/brillo sin corregir
+nada más deja un velo traslúcido parejo en toda la imagen (invisible sobre
+blanco, pero muy visible como un rectángulo fantasma sobre fondos de color,
+como el panel morado del login o las tarjetas de Agenda). Dos correcciones
+necesarias sobre el algoritmo original:
+1. La saturación tiene que ser relativa a la saturación del propio fondo
+   (`sat - sat_bg * 1.4`) — si no, el papel crema del lettering (que ya
+   tiene algo de saturación propia) queda mal clasificado.
+2. Hace falta un piso (`piso = 0.09`) que fuerce alpha exactamente 0 por
+   debajo de cierto puntaje — si no, el ruido de compresión JPEG en zonas
+   de fondo "planas" dejaba un alpha bajo pero no-cero en todos lados
+   igual, aunque la saturación ya estuviera bien corregida (encontrado
+   recién al procesar las flores para usarlas a opacidad completa; el
+   patrón de fondo no lo mostraba porque además se aplica a opacidad muy
+   baja, el velo residual quedaba por debajo de 1/255).
+
+El canal RGB nunca se toca en este proceso (solo se recalcula el alfa), así
+que las 4 imágenes de flores/concha que ya estaban en el repo se
+reprocesaron in-place con el algoritmo corregido sin necesidad de volver a
+las capturas originales.
+
+**Borde blanco tipo calcomanía ("die-cut"): probado y descartado.** Se
+probaron tres vueltas de un efecto de borde grueso (blanco, después blanco
++ línea fina oscura) alrededor de los 10 stickers, dilatando la silueta del
+alfa (con `scipy.ndimage`, venv con numpy/scipy). Ninguna convenció a la
+usuaria ("no se ve prolijo", después "se ven terribles" incluso con
+referencia visual de un sticker comprado) y pidió sacarlo del todo — los
+stickers quedaron en su recorte transparente simple, sin borde, como antes
+de probar esto. Si se vuelve a pedir un efecto de borde, la usuaria
+mencionó que probablemente lo resuelva ella misma re-exportando desde
+Procreate en vez de generarlo por script — no asumir que hay que retomar
+este mismo camino.
+
+### Responsive (mobile/tablet)
+
+La app se construyó desktop-first y no tenía ninguna regla responsive
+salvo el grid de Agenda. Pedido explícito de la usuaria: que funcione bien
+en iPhone/iPad/tablet, "para todo". Cambios por pantalla:
+
+- **Shell** (`frontend/src/app/shell/`): el sidebar fijo de 15.5rem no
+  entra en un teléfono — por debajo de 860px se convierte en un **cajon
+  deslizable** (off-canvas, `position: fixed` + `transform: translateX()`,
+  clase `.abierto` controlada por `menuMovilAbierto` en `shell.ts`), oculto
+  por default. Aparece una barra superior fija (`.mobile-topbar`) con el
+  logo y un botón de hamburguesa; un backdrop oscuro atrás del cajón lo
+  cierra al tocar afuera, y cada link de navegación llama a
+  `cerrarMenuMovil()` al clickear (si no, quedaba abierto tapando la
+  pantalla después de navegar). Arriba de 860px estas reglas no se activan,
+  el sidebar queda exactamente igual que antes.
+- **Login**: el layout de 2 columnas (formulario + panel morado, 50/50)
+  aprieta demasiado la tarjeta en pantallas chicas — por debajo de 760px se
+  apila en columna, con el panel morado como franja superior compacta (sin
+  los chips flotantes, pensados para un panel ancho) y la tarjeta a ancho
+  completo.
+- **Postulaciones**: el formulario de 3 columnas y la tarjeta de stats (con
+  divisor lateral) se apilan por debajo de 640px. La fila de cada
+  postulación (`post-row`) no se tocó — alcanza con `flex-wrap: wrap` para
+  que los pills de estado/compatibilidad/probabilidad pasen solos a la
+  siguiente línea si no entran junto al nombre de la empresa, sin cambiar
+  el HTML.
+- **Agenda**: el grid de 2 columnas del layout tipo planner ya colapsaba a
+  1 columna por debajo de 900px (de la tanda anterior) — se le bajó el
+  `min-height` de los cuadros en ese modo (24rem a 17rem, si no cada
+  cuadro ocupando todo el ancho es demasiado scroll en el teléfono) y el
+  formulario de evento (2 columnas) se apila por debajo de 640px.
+
+No se tocó `clientes` (pantalla oculta del nav, ver
+[[project_marca_anadesing_annie]]) — su CSS es mínimo y no tiene grids
+fijos que rompan.
+
+**Sin poder probar en un dispositivo real ni en devtools de un navegador
+real** — verificado con `tsc`/`ng build` y leyendo el CSS con cuidado, pero
+falta la validación visual real en iPhone/iPad. Pedirle a la usuaria que
+lo pruebe y avise qué ajustar.
+
+## App Android (`android/`)
+
+Esta web siempre fue intencionalmente una capa fina sobre la misma API
+(`backend/`) que iba a usar la futura app Android — mismos endpoints,
+mismo login, mismo formato de fechas. Empezada el 2026-08-30, pedido
+explícito de la usuaria (además de dejar la web responsive).
+
+**Kotlin + Jetpack Compose, no Java + XML** (el plan original de este
+README decía "Java + Retrofit"): Retrofit se mantuvo, pero se cambió Java
+por Kotlin y las vistas XML clásicas por Jetpack Compose — es el enfoque
+que Google recomienda para proyectos nuevos hoy, bastante menos código
+repetitivo, y Kotlin tiene soporte de primera clase (Java quedó como
+legacy-compatible, no como default). Retrofit funciona igual de bien con
+cualquiera de los dos. Si esto no es lo que se quería, es cuestión de
+avisar — recién está el esqueleto, cambiar de estrategia ahora es barato.
+
+**Entorno de desarrollo — dos caminos, a propósito:**
+1. Este entorno (WSL, sin GUI) tiene el JDK 17 + Android SDK
+   (cmdline-tools, platform-tools/`adb`, `platform-35`, `build-tools;35.0.0`)
+   instalados **sin sudo** en `~/android-toolchain/` (no hay contraseña de
+   sudo disponible acá) — variables de entorno (`JAVA_HOME`, `ANDROID_HOME`,
+   `PATH`) agregadas a `~/.bashrc`. Desde acá se puede escribir código y
+   compilar por línea de comandos (`./gradlew assembleDebug`), pero no hay
+   emulador gráfico ni forma de ver la app corriendo.
+2. La usuaria instala **Android Studio en Windows** y abre esta misma
+   carpeta (`C:\xampp\htdocs\agenda\android\`, que es literalmente
+   `android/` visto desde WSL — no hay que copiar ni sincronizar nada) para
+   compilar con la GUI, usar el emulador, y probar en su teléfono real. Su
+   Android Studio va a generar su propio `local.properties` (con la ruta
+   Windows del SDK que instale) — no hay conflicto con el `local.properties`
+   de WSL, cada entorno tiene el suyo, por eso está en `.gitignore`.
+
+**Primer checkpoint (listo, `BUILD SUCCESSFUL`):** un `MainActivity.kt`
+mínimo en Compose ("¡Hola! Agenda Inteligente para Android está en
+marcha.") que solo confirma que toda la cadena de herramientas (JDK +
+SDK + Gradle 8.10 + Kotlin 2.0.20 + Compose) compila de punta a punta y
+genera un APK real (`app/build/outputs/apk/debug/app-debug.apk`,
+verificado que existe y pesa ~10MB). A propósito no se metió ninguna
+pantalla real todavía — el paso que sigue es Login conectado al backend
+real (mismos endpoints `POST /auth/login` / `POST /auth/register` que ya
+usa la web) vía Retrofit.
+
+**Estructura:** módulo único `app/` (`namespace`/`applicationId`
+`com.anadesing.agendainteligente`), `minSdk 26` / `compileSdk 35` /
+`targetSdk 35`. Dependencias ya declaradas en `app/build.gradle.kts`
+pensando en los próximos pasos (no todas se usan todavía en el
+"Hola mundo"): Compose BOM, `navigation-compose` y
+`lifecycle-viewmodel-compose` (para cuando haya más de una pantalla),
+Retrofit + `converter-gson` + `logging-interceptor` (cliente HTTP contra
+`backend/`), `datastore-preferences` (equivalente Android al
+`localStorage` que usa la web para guardar el JWT).
+
+**Segundo checkpoint (listo, `BUILD SUCCESSFUL`): Login/Registro + Agenda
+(vista de mes, solo lectura), contra el backend real.** Pedido explícito de
+la usuaria (2026-08-31): saltear el resto de Postulaciones/vista
+semana/notas por ahora e ir directo a ver la Agenda andando en Android.
+Como `/postulaciones` y `/eventos` exigen JWT (`requireAuth` en
+`backend/index.js`), Login quedó como prerrequisito técnico, no como
+elección de diseño — no hay forma de probar la Agenda real sin poder
+autenticar primero.
+
+- **Sin Hilt/Koin:** `AgendaApp.kt` (subclase de `Application`, registrada
+  en el manifest) arma a mano un único `Retrofit`/`OkHttp` y los
+  repositorios (`AuthRepository`, `AgendaRepository`), pasados a los
+  `ViewModel` por factory — proyecto chico, no justifica una librería de
+  inyección de dependencias.
+- **`data/`**: `AuthApi`/`AgendaApi` (Retrofit, mismos endpoints que ya usa
+  la web: `POST /auth/login`, `POST /auth/register`, `GET /postulaciones`,
+  `GET /eventos`), `TokenStore` (DataStore Preferences + decodeToken() del
+  JWT, equivalente exacto de `auth.service.ts`), `NetworkModule` (interceptor
+  que agrega `Authorization: Bearer <token>` a cada request).
+- **Login (`ui/login/`)**: un solo formulario que alterna login/registro,
+  igual que `login.ts` — mensajes de error los manda el propio backend
+  (`err.error` tal cual). Sin la mitad ilustrada (avatar de Annie, chips
+  flotantes) del login web: es CSS/imágenes específicas de esa pantalla, no
+  esencial para probar que la autenticación funciona.
+- **Agenda (`ui/agenda/`), alcance de esta vuelta — elegido por la usuaria
+  entre varias opciones de tamaño:** calendario mensual (grilla de 6×7,
+  semana arrancando el lunes, igual que `inicioDeSemana()` en `agenda.ts`),
+  un punto de color por entrevista (dorado) y por tipo de evento presente
+  ese día (mismos 4 tonos de marca que `COLOR_TIPO_EVENTO`). Tocar un día
+  muestra debajo la lista de entrevistas/eventos de esa fecha. **Todavía
+  sin**: vista semana con timeline por hora, notas del día/objetivos del
+  mes/afirmación (guardados en `localStorage` en la web), alta/edición/
+  borrado de eventos, y `/citas`. `GET /postulaciones` y `GET /eventos` se
+  piden una sola vez al entrar (como hace `ngOnInit` en la web) y se
+  recalculan en el dispositivo al cambiar de mes, sin volver a pedirle nada
+  al backend.
+- **Tema de marca (`ui/theme/Tema.kt`)**: los colores de `styles.css`
+  (`--accent-purple`, `--accent-pink`, `--gold`, `--coral-deep`, etc. —
+  los `oklch(...)` convertidos a sRGB) armando un `ColorScheme` de
+  Material3 más una paleta aparte (`ColoresAgenda`) para los puntos de
+  tipo de evento, que no tienen un slot propio en `ColorScheme`.
+- **Red — dos casos distintos según cómo pruebes:** `NetworkModule.kt`
+  apunta a `http://10.0.2.2:4000/` (el alias fijo que usa el emulador de
+  Android Studio para llegar al `localhost` de la PC que lo corre — no
+  hace falta tocar nada para probar ahí, alcanza con tener el backend
+  corriendo con `npm run dev` en Windows). Para probar en un **celular
+  real** conectado a la misma red Wi-Fi que la PC, hay que cambiar esa
+  constante por la IP LAN de la PC (`ipconfig` en Windows → "Dirección
+  IPv4", algo tipo `192.168.x.x`) y puede hacer falta permitir el puerto
+  4000 en el Firewall de Windows. El backend ya escucha en todas las
+  interfaces (`app.listen(PORT)` sin host fijo), así que no necesita
+  cambios ahí.
+- **HTTP en desarrollo:** Android bloquea tráfico sin cifrar por defecto
+  desde API 28, y el backend todavía no tiene HTTPS — se agregó
+  `android:usesCleartextTraffic="true"` en el manifest para poder probar
+  ahora. Repasar/sacar esto el día que haya un backend real en producción
+  con HTTPS.
+
+**Tercer checkpoint (listo, `BUILD SUCCESSFUL`): la app ya se ve como una
+app — ícono, splash screen y navegación entre secciones.** Pedido explícito
+de la usuaria (2026-08-31): antes de seguir sumando pantallas, que deje de
+sentirse "una pantalla suelta" y se vea como algo instalable de verdad.
+
+- **Ícono adaptativo (`res/mipmap-anydpi-v26/ic_launcher*.xml`)**: generado
+  a partir de `frontend/public/img/logo.png` (el monograma "A" de
+  Anadesing) — recortado y centrado al 62% del canvas de 432px, dentro de
+  la "safe zone" de 108dp que exige el formato adaptativo, sobre un fondo
+  sólido con el mismo `bg` claro que usa la web. Un solo foreground en
+  `drawable-xxxhdpi/ic_launcher_foreground.png` (sin variantes por
+  densidad ni PNGs legacy por debajo de eso: `minSdk 26` ya garantiza
+  soporte de íconos adaptativos en todo dispositivo que puede correr esta
+  app). El manifest ahora declara `android:icon`/`android:roundIcon` —
+  antes no tenía ninguno de los dos y por eso se veía el ícono genérico de
+  Android.
+- **Splash screen nativo (`androidx.core:core-splashscreen`)**: reusa el
+  mismo foreground y el mismo color de fondo del ícono. Tema
+  `Theme.AgendaInteligente.Starting` (`values/themes.xml`) puesto en la
+  activity vía manifest, que devuelve el control al tema real
+  (`Theme.AgendaInteligente`, el que ya maneja Compose en `Tema.kt`) apenas
+  se dibuja el primer frame — no se tocó el theming real de Compose, solo
+  el instante de arranque en frío.
+- **Navegación inferior (`MainActivity.kt`: `Pestana` + `PrincipalScreen`)**:
+  el `NavHost` ya no navega directo a "agenda" sino a un destino
+  "principal" que envuelve un `Scaffold` con `NavigationBar` de 3
+  pestañas — Agenda (funcional), Postulaciones y Configuración. Estas
+  últimas dos muestran una pantalla "Próximamente"
+  (`ui/common/PantallaProximamente.kt`, reutilizada por ambas) hasta que se
+  migren de verdad. Se eligieron esas 3 pestañas y no Clientes porque
+  `Clientes` ni siquiera está enlazada en el nav de la web actual
+  (`shell.html` solo linkea a `/agenda` y `/postulaciones`, más
+  `/configuracion` como botón aparte) — es una ruta huérfana, no forma
+  parte de la navegación real que se está migrando.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre en este entorno (WSL sin GUI): no se pudo ver el
+  ícono/splash/nav corriendo en pantalla — falta que la usuaria lo
+  confirme en Android Studio o en el celular real.
+- **Pendiente real de la migración** (las pestañas de arriba son solo la
+  cáscara de navegación, todavía no hay código Android para esto):
+  Postulaciones (probabilidad de llamada, compatibilidad con IA, feed de
+  mails), Configuración (perfil), Annie (asistente de voz + feed de
+  actividad en vivo) y push notifications (equivalente Android de
+  `push.service.ts`, sería Firebase Cloud Messaging).
+
+**Cuarto checkpoint (listo, `BUILD SUCCESSFUL`): Postulaciones completa,
+paridad total con la web.** Pedido explícito de la usuaria (2026-08-31):
+a diferencia de Agenda, acá se pidió todo de una en vez de arrancar por una
+versión de solo lectura.
+
+- **`data/PostulacionesModels.kt` / `PostulacionesApi.kt` /
+  `PostulacionesRepository.kt`**: mismos endpoints que ya usa la web
+  (`GET/POST/PUT/DELETE /postulaciones`, `GET /postulaciones/stats`,
+  `POST /postulaciones/recalcular-compatibilidad`, `GET/DELETE
+  /mails-revision`). `probabilidad_llamada` y `compatibilidad_oferta` ya
+  vienen calculados por el backend (`probabilidadLlamada.js`,
+  `compatibilidadOferta.js`) — no hay heurística ni IA que portar a
+  Kotlin, la app solo pinta los campos.
+- **`ui/postulaciones/PostulacionesViewModel.kt`**: mismo estado y lógica
+  que `postulaciones.ts` (lista filtrable por estado/búsqueda, stats,
+  bandeja de mails con selección múltiple, alta/edición/borrado,
+  recalcular compatibilidad). Los `confirm()` nativos del navegador se
+  reemplazaron por un `Confirmacion(mensaje, accion)` genérico que la
+  pantalla muestra como `AlertDialog`.
+- **`ui/postulaciones/PostulacionesScreen.kt`**: mismo layout que
+  `postulaciones.html` (form de 9 campos, tarjeta de bandeja de mails,
+  tarjeta de stats con barras por estado, buscador, chips de filtro,
+  lista con tarjetas expandibles). Sin i18n (como el resto de la app
+  Android): todo el texto está hardcodeado en español, igual que
+  `AgendaScreen.kt`/`LoginScreen.kt`. Los `<input type="date">` /
+  `type="datetime-local">` de la web se resolvieron con `DatePickerDialog`
+  y `TimePicker` de Material3 (`ExperimentalMaterial3Api`).
+- **Sin dependencias nuevas**: `DatePicker`, `TimePicker`,
+  `ExposedDropdownMenuBox`, `FilterChip` y `Checkbox` ya vienen con
+  `androidx.compose.material3:material3` (BOM 2024.09.00 → material3
+  1.3.0) que el proyecto ya tenía.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta probarla a mano contra el backend real (login
+  + datos reales) en Android Studio o el celular.
+
+**Quinto checkpoint (listo, `BUILD SUCCESSFUL`): pasada de diseño (tipografía
+Aclonica, tarjetas y botones de marca) + Annie con chat y voz.** Pedido
+explícito de la usuaria (2026-08-31): la app ya andaba pero se veía
+"Material genérico" en vez de calcar la web, y faltaba Annie por completo.
+
+- **Diseño de marca (`ui/common/BotonDegradado.kt`, `ui/common/TarjetaAnadesing.kt`,
+  `ui/theme/Tema.kt`)**: se llevó a Android la fuente decorativa `Aclonica`
+  (la misma que usa la clase `.display` en styles.css, licencia Apache 2.0,
+  bundleada en `res/font/aclonica.ttf`) para todos los títulos de pantalla,
+  y dos componentes reusables que calcan la web: botón en píldora con
+  degradé morado→rosa (`.btn-add`/`.btn-recalcular`/`.btn-bulk-*`) y tarjeta
+  con esquinas de 20px y sombra tenida de morado (`.card`). Se aplicaron en
+  Login, Agenda y Postulaciones. `LoginScreen.kt` se refactorizó para usar
+  `BotonDegradado` en vez de repetir el mismo `Brush` a mano.
+- **Annie (`ui/annie/`, `data/Annie*.kt`)**: chat de texto contra
+  `/annie/chat` -- el backend ya tiene las herramientas reales
+  (`agendar_entrevista`, `crear_evento`, ver `backend/routes/annie.js`), así
+  que Android no reimplementa ninguna lógica de agenda, solo la pantalla de
+  conversación. El historial de Claude (`role` + `content`, donde `content`
+  puede ser texto simple o bloques de tool_use/tool_result) se modela como
+  `JsonElement` opaco -- igual que el `unknown` de `AnnieMensaje` en
+  annie.service.ts, no hace falta tipar el schema completo de Anthropic.
+  Pantalla completa con el mismo degradé morado→rosa que `.annie-card` en
+  shell.css (en la web es un widget de barra lateral, acá es su propia
+  pestaña del bottom nav).
+- **Voz**: la respuesta de Annie se manda a `/annie/tts` (ElevenLabs, ya
+  configurado en el backend) y se reproduce con `MediaPlayer`; si falla,
+  cae a `android.speech.tts.TextToSpeech` (voz del sistema) para que Annie
+  nunca se quede muda, mismo espíritu que el fallback a
+  `speechSynthesis` del navegador en shell.ts. El dictado por voz usa el
+  intent estándar `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` (delega en la
+  app de reconocimiento de Google) en vez de `SpeechRecognizer` a mano --
+  mismo resultado, bastante menos código, y no necesita permiso
+  `RECORD_AUDIO` propio porque el micrófono lo usa esa otra app.
+- **Sin migrar todavía** (deliberado, no es parte de "chat + voz"): el feed
+  de actividad reciente de Annie (chips de "¡Oferta de X!", etc.) y los
+  recordatorios push por Firebase Cloud Messaging -- este último necesita
+  que la usuaria agregue una app Android al proyecto Firebase
+  `turnero-ec3cd` y pase `google-services.json` antes de que se pueda hacer
+  nada del lado Android (ver conversación). Los recordatorios por Telegram
+  (seguimiento de postulaciones, eventos, resumen semanal) ya le llegan a
+  la usuaria sin ningún cambio, corren enteramente en el backend.
+- **Corrección de paso: Agenda/Postulaciones ahora recargan al volver a
+  mostrarse** (`LaunchedEffect(Unit) { viewModel.cargar() }` en sus Screen,
+  ya no `init { cargar() }` en el ViewModel) -- necesario para que lo que
+  Annie agenda desde el chat aparezca al cambiar de pestaña sin tener que
+  cerrar y reabrir la app.
+
+**Sexto checkpoint (listo, `BUILD SUCCESSFUL`): saludo personalizado de
+Annie, notas/objetivos/afirmación en Agenda, y español neutro en Annie.**
+Pedido explícito de la usuaria (2026-08-31).
+
+- **Saludo de Annie (`AnnieViewModel.saludar()`)**: dispara al entrar a
+  "principal" (o sea, al abrir la app ya logueada, o justo despues de
+  loguearse) y no recien al tocar la pestaña de Annie -- el ViewModel se
+  crea en `PrincipalScreen`, no dentro del `when` de la pestaña, mismo
+  criterio que usa shell.ts al ser un widget global del Shell en la web.
+  Annie pide el nombre una sola vez (`GET /auth/perfil`) y saluda
+  `"¡Bienvenida a tu Agenda Inteligente! ¿En qué puedo ayudarte hoy,
+  {nombre}?"` -- igual que `saludar()` en shell.ts. Si todavía no hay
+  nombre guardado, pregunta `"¿Cómo te gusta que te llame?"` y el próximo
+  mensaje que mande la usuaria se guarda como nombre (`PUT /auth/perfil`)
+  en vez de mandarse al chat normal -- mismo mecanismo que
+  `esperandoNombre` en shell.ts. No se migró el resto de Configuración
+  para esto, solo se agregaron `GET`/`PUT /auth/perfil` a `AuthApi.kt`
+  (`PerfilDto` con un solo campo, `nombre` -- el backend acepta actualizar
+  ese campo solo sin tocar el resto del perfil).
+- **Notas del día, objetivos del mes y afirmación (`data/AgendaLocalStore.kt`)**:
+  en la web viven solo en `localStorage` (`NOTA_PREFIJO`/`OBJETIVOS_PREFIJO`/
+  `AFIRMACION_PREFIJO` en agenda.ts), nunca tocan el backend -- en Android
+  el equivalente es DataStore Preferences (mismo mecanismo que ya usa
+  `TokenStore` para el JWT, pero en un archivo separado, `agenda_local`),
+  con una clave por fecha/mes. Se agregaron como tres tarjetas nuevas
+  debajo del panel del día seleccionado en `AgendaScreen.kt`, con el mismo
+  estilo (`TarjetaAnadesing`, título en Aclonica) que ya se usa en
+  Postulaciones.
+- **Español neutro en Annie**: se encontraron y corrigieron dos textos con
+  voseo que se habían colado en `AnnieViewModel.kt`/`AnnieScreen.kt`
+  ("Pedime"/"preguntame" en el saludo viejo, ya reemplazado por el de
+  arriba; "Hablale a Annie…" → "Háblale a Annie…" en el prompt del
+  dictado), y el locale de voz pasó de `"es"` a `"es-419"` en
+  `RecognizerIntent.EXTRA_LANGUAGE` y en `TextToSpeech.setLanguage()` --
+  ver [[feedback_espanol_neutro]], que ya pedía `es-419` específicamente
+  para los tags de idioma de voz. El resto de los textos de la app ya
+  estaban en español neutro (revisado con una búsqueda completa de
+  patrones de voseo en todo `android/app/src/main/java`).
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta probarlo a mano (el saludo, guardar el nombre,
+  y que notas/objetivos/afirmación persistan de verdad entre aperturas de
+  la app).
+
+**Séptimo checkpoint (listo, `BUILD SUCCESSFUL`): la pestaña de Annie se
+abre sola al terminar el saludo, y los stickers/lettering de Ana aparecen
+en Agenda.** Pedido explícito de la usuaria (2026-08-31): dos ajustes sobre
+el checkpoint anterior.
+
+- **Annie abre su pestaña sola (`MainActivity.kt`)**: `saludar()` pasó de
+  disparar su propio `viewModelScope.launch` a ser `suspend fun`, para que
+  `PrincipalScreen` pueda esperarla y recién ahí poner
+  `pestana = Pestana.ANNIE`. Antes el saludo quedaba listo pero había que
+  tocar la pestaña a mano para verlo -- en la web Annie es un widget
+  siempre visible en la barra lateral, esto es lo más parecido con un
+  bottom nav de una pestaña a la vez.
+- **Stickers y lettering de Ana en Agenda (`ui/common/Stickers.kt`,
+  `ui/common/TarjetaAnadesing.kt`)**: se habían migrado los paneles de
+  Notas/Objetivos/Afirmación sin sus stickers -- ahora `TarjetaConStickers`
+  (misma tarjeta de siempre, más dos stickers de flor rotados en las
+  esquinas, igual que `.box-sticker.tl`/`.box-sticker.br` en agenda.css)
+  envuelve los tres, con los mismos índices que `stickerFlor()` en
+  agenda.ts (Notas 4/6, Objetivos 2/4, Afirmación 3/5), y el panel de
+  Afirmación suma el lettering grande (elegido al azar entre los 6, como
+  `elegirSticker()`). Son los mismos PNG dibujados a mano por Ana en
+  Procreate que ya usa la web (`frontend/public/img/stickers/`,
+  `frontend/public/img/lettering/`), copiados a `res/drawable/` con
+  nombres válidos para Android (sin guiones: `eres-genial.png` →
+  `lettering_eres_genial.png`). No se tocaron los blobs de gradiente de
+  Login/Shell ni los stickers de la barra lateral (`stickersSidebar` en
+  shell.ts) -- esos son decoración de una barra lateral que no existe en
+  Android (acá el bottom nav ya cumple ese rol), no "imágenes diseñadas"
+  en el sentido que se pidió corregir.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta confirmar a mano que los stickers se vean bien
+  posicionados en pantalla real (los cálculos de esquina son a ojo,
+  trasladados de rem a dp).
+
+**Octavo checkpoint (listo, `BUILD SUCCESSFUL`): Annie en el login, y el
+calendario de Agenda con el mismo lenguaje visual que la web (pildora de
+mes, celdas con borde/fondo lavanda, "hoy" como burbuja en degrade).**
+Pedido explícito de la usuaria (2026-08-31): "que salga Annie de una vez"
+en el login, y que el calendario se vea "más girly".
+
+- **Annie en el login (`ui/login/LoginScreen.kt`)**: se agregó el panel
+  `AnnieHero` (foto de Annie circular, "Hola, soy Annie" en Aclonica, y su
+  tagline) con el mismo fondo degradé morado→rosa que `.login-brand-side`
+  en login.css. En la web ese panel va al lado del formulario en pantallas
+  anchas, pero la propia web lo apila arriba en mobile (`order:-1` en el
+  media query de 760px) y esconde los chips flotantes por falta de
+  espacio -- Android, al ser siempre angosto, imita directo esa versión
+  mobile: panel arriba, formulario abajo, sin los chips.
+- **Calendario con el estilo de agenda.css, no Material genérico**
+  (`AgendaScreen.kt`): el calendario completo (header + grilla) ahora vive
+  adentro de un `TarjetaConStickers` (stickers índice 0/2, igual que
+  `stickerFlor(0)`/`stickerFlor(2)` en el `.calendar-card` de agenda.html);
+  el mes ("Agosto 2026") pasó de texto plano a una píldora blanca sobre
+  degradé morado→rosa (`PildoraMes`, igual que `.calendar-month`); y cada
+  celda de día (`DiaCelda`) tiene ahora fondo lavanda suave + borde morado
+  fino siempre (antes no tenían fondo ni borde en absoluto), "hoy" resalta
+  solo el número con una burbuja circular en degradé (antes tenía toda la
+  celda teñida), y "seleccionado" pasa a blanco con borde morado más
+  marcado (antes era un relleno morado sólido con número blanco). Los días
+  fuera del mes visible ahora atenúan la celda completa (`alpha`), no solo
+  el número.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta confirmar a mano que las celdas/píldora/hero se
+  vean bien en pantalla real, sobre todo que el círculo de "hoy" no se vea
+  apretado dentro de la celda en teléfonos chicos.
+
+**Noveno checkpoint (listo, `BUILD SUCCESSFUL`): Notas y Afirmaciones pasan
+de un cuadro de texto libre a una lista de entradas sueltas, agregables y
+borrables.** Pedido explícito de la usuaria (2026-08-31) -- a diferencia
+del resto de la migración, esto es una mejora deliberada sobre la web, no
+una copia: en agenda.ts ambas son un solo `<textarea>` que autoguarda en
+`localStorage`; acá la usuaria pidió poder cargar varias notas/afirmaciones
+sueltas (una por Enter) y borrar cualquiera de las cargadas.
+
+- **`data/AgendaLocalStore.kt`**: `leerNota`/`guardarNota` y
+  `leerAfirmacion`/`guardarAfirmacion` (un string) se reemplazaron por
+  `leerNotas`/`agregarNota`/`eliminarNota` y
+  `leerAfirmaciones`/`agregarAfirmacion`/`eliminarAfirmacion` (listas,
+  mismo mecanismo JSON-en-DataStore que ya usaba `objetivos`). Las claves
+  de DataStore cambiaron de singular a plural (`notas_{fecha}`,
+  `afirmaciones_{mes}`) porque el formato guardado es distinto (antes un
+  string plano, ahora un JSON array) -- lo que hubiera quedado escrito
+  durante las pruebas de los checkpoints anteriores no es compatible y se
+  pierde, aceptable en esta etapa (todavía no hay usuarias reales con
+  datos que cuidar).
+- **`AgendaViewModel.kt`/`AgendaScreen.kt`**: nuevo composable compartido
+  `ListaConAgregar` (una lista de textos con una "×" para borrar cada uno,
+  más un campo con tecla Enter o botón "➤" para agregar) -- se usa tanto en
+  el panel de Notas como en el de Afirmaciones (antes "Una afirmación",
+  ahora "Afirmaciones" en plural, porque ya no es una sola). Objetivos del
+  mes no cambió: ya eran 5 líneas separadas de por sí, no un cuadro libre.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta probar a mano que agregar/borrar notas y
+  afirmaciones funcione bien y persista entre aperturas de la app.
+
+**Décimo checkpoint (listo, `BUILD SUCCESSFUL`): ícono nuevo y firma de Ana
+en el login.** La usuaria dejó `Untitled design.png` en su carpeta de
+Descargas de Windows (un solo archivo con el logo nuevo y su firma
+manuscrita, ambos sobre fondo transparente) pidiendo reemplazar el ícono
+de la app por ese logo y sumar su firma "como en el web".
+
+- Ese único PNG se separó en dos por bandas de contenido (fila con alpha
+  > 0): el logo ocupa y≈215–1070, la firma y≈1119–1676. Cada parte se
+  recortó a su bounding box real con un margen de 15px.
+- **Ícono**: el logo recortado reemplazó a
+  `drawable-xxxhdpi/ic_launcher_foreground.png`, con el mismo proceso de
+  siempre (centrado al 62% del canvas de 432px, dentro de la safe zone
+  adaptativa) -- no cambia nada de la estructura del ícono, solo la fuente.
+  El `logo.png` de la web (`frontend/public/img/logo.png`) no se tocó, no
+  era parte del pedido.
+- **Firma en el login**: nuevo composable `FirmaCredit` en
+  `LoginScreen.kt` -- "UN PRODUCTO DE ANADESING" en versalitas chicas más
+  la firma (`res/drawable/firma.png`, recortada de ese mismo PNG y
+  reescalada a 700px de ancho), debajo del switch login/registro. Mismo
+  lugar y mismo texto que `.firma-credit` en login.css, pero la imagen
+  nueva ya viene con transparencia real (a diferencia de `firma.jpg` en la
+  web, que es una foto con fondo blanco y necesita
+  `mix-blend-mode: multiply` para disimularlo) -- por eso acá no hizo
+  falta ningún blend mode ni recorte con `overflow:hidden` como en
+  `.firma-crop`, se puede mostrar directo.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta confirmar a mano que el ícono nuevo se vea bien
+  en el launcher y que la firma quede bien recortada/alineada en el login
+  real.
+
+**Ajuste chico: la pestaña de Annie en el bottom nav usa su foto, no un
+emoji de robot.** `MainActivity.kt` -- el ícono de esa pestaña era el
+emoji "🤖", pedido explícito de la usuaria fue que sea Annie misma. Ahora
+esa pestaña muestra `R.drawable.annie` (la misma foto que ya se usa en su
+chat y en el login) recortada en círculo de 24dp; las otras tres pestañas
+siguen con su emoji sin cambios.
+
+**Ícono real de la app + cerrar el teclado al tocar afuera.** La usuaria
+había dejado `agenda/imagenes/icono moviljpeg.jpeg` en el repo (una
+carpeta que no estaba explorada todavía) pidiendo que ese fuera el ícono
+real -- el que se había puesto antes (el logo "A" recortado de `Untitled
+design.png`) no era lo que pedía.
+
+- **Ícono (`mipmap-anydpi-v26/ic_launcher*.xml`)**: a diferencia del logo
+  anterior (un monograma transparente que necesitaba fondo + safe zone),
+  `icono moviljpeg.jpeg` ya es una ilustración cuadrada completa con su
+  propio fondo degradé -- no tiene sentido tratarla como "foreground" con
+  padding. Se usa directo como `<background>` del ícono adaptativo
+  (`drawable-xxxhdpi/ic_launcher_foto.png`, reescalada a 432px) y el
+  `<foreground>` pasa a `@android:color/transparent` (nada dibujado
+  encima). `ic_launcher_foreground.png` (el monograma "A") no se borró --
+  lo sigue usando la splash screen (`Theme.AgendaInteligente.Starting` en
+  themes.xml), que no era parte de este pedido.
+- **Cerrar teclado al tocar afuera (`AgendaScreen.kt`)**: Notas, Objetivos
+  y Afirmaciones ya autoguardaban en cada letra escrita (se revisó
+  `AgendaViewModel.onObjetivoChange`, que sí llama a
+  `local.guardarObjetivo` igual que los otros dos campos) -- lo que
+  faltaba era una señal visible de "esto ya quedó". Un
+  `Modifier.pointerInput(Unit) { detectTapGestures(...) }` en la Column
+  principal limpia el foco y oculta el teclado al tocar en cualquier lugar
+  vacío de la pantalla.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta confirmar a mano que el ícono nuevo se vea
+  bien en el launcher (recordar que MIUI puede tardar en refrescarlo) y
+  que tocar afuera de los campos realmente cierre el teclado sin romper
+  el tap en botones/celdas del calendario.
+
+**Corrección: el "tocar afuera cierra el teclado" del paso anterior rompía
+el botón de borrar de Notas/Afirmaciones.** La usuaria probó y no podía
+borrar las entradas que había cargado -- el sospechoso más directo era el
+`Modifier.pointerInput(Unit) { detectTapGestures(...) }` que se había
+agregado en la Column principal de `AgendaScreen.kt`: un detector de tap
+"crudo" en el contenedor raíz puede competir con el `clickable` interno de
+botones chicos anidados (el IconButton de "×" tiene 28dp), un problema
+conocido de Compose. Se sacó ese modifier por completo.
+
+- En su lugar, cada campo de texto maneja su propio cierre de teclado:
+  `PanelObjetivos` ahora tiene `keyboardOptions`/`keyboardActions` con
+  `ImeAction.Done` (el Enter del teclado limpia el foco y oculta el
+  teclado), que es el pedido explícito de la usuaria ("los objetivos no me
+  pusiste el enter"). El campo de agregar en `ListaConAgregar`
+  (Notas/Afirmaciones) ya tenía `onDone` desde el checkpoint anterior,
+  pero llamaba a `onAgregar()` sin agregar el foco/teclado -- se queda así
+  a propósito (Enter ahí agrega el ítem, que es más útil que solo cerrar
+  el teclado).
+- Ya no hay forma de cerrar el teclado tocando en un espacio vacío de la
+  pantalla -- solo con el Enter/Done de cada campo. Es una regresión
+  aceptada a cambio de no romper botones; si hace falta ese gesto más
+  adelante, hay que buscar una implementación que no interfiera con
+  clickables anidados (por ejemplo, detectando el tap solo en el fondo de
+  la pantalla, no en un contenedor que envuelve todo el contenido).
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta confirmar a mano que borrar notas/afirmaciones
+  funcione de nuevo y que el Enter en Objetivos cierre el teclado.
+
+**Borrar eventos de la Agenda -- lo que en realidad pedía "no puedo borrar
+las citas".** Malentendido de mi parte: el mensaje anterior de la usuaria
+("no puedo borrar lascitas manualmente") no era sobre Notas/Afirmaciones
+(eso ya andaba bien) sino sobre los eventos que se ven en el panel del día
+seleccionado -- Agenda era de solo lectura para eventos/entrevistas desde
+el segundo checkpoint (deliberado en ese momento), y en la web sí se
+pueden borrar (`borrarEvento()` en agenda.ts).
+
+- **`data/AgendaApi.kt`/`AgendaRepository.kt`**: se agregó
+  `DELETE eventos/{id}`, mismo endpoint que ya usa la web.
+- **`AgendaViewModel.kt`**: nuevo `confirmarBorrarEvento(evento)` con el
+  mismo mecanismo `Confirmacion(mensaje, accion)` que ya usaba
+  Postulaciones -- esa clase se movió a `ui/common/Confirmacion.kt` para
+  compartirla entre las dos pantallas en vez de duplicarla.
+- **`AgendaScreen.kt`**: `FilaItem` suma un botón "×" opcional
+  (`onBorrar: (() -> Unit)?`). Solo los eventos personales lo tienen; las
+  entrevistas quedan sin borrar desde acá a propósito -- son parte de una
+  postulación, se editan/borran desde la pestaña Postulaciones, no tiene
+  sentido duplicar esa acción acá.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta probar a mano que borrar un evento real
+  funcione y que la Agenda se actualice sin recargar la app.
+
+**Ícono definitivo.** La usuaria dejó `agenda/imagenes/Icono Definitivoa.jpeg`
+(otra ilustración cuadrada completa, estilo agenda/planner rosa) pidiendo
+reemplazar el ícono por ese.
+
+- Primer intento: reescalada directo a 432px sin más, pisando
+  `drawable-xxxhdpi/ic_launcher_foto.png`. La usuaria probó y la máscara
+  del ícono adaptativo (el sistema recorta a círculo/cuadrado redondeado
+  según el launcher) le cortaba partes del dibujo, incluido el texto
+  "Agenda" -- la imagen original ocupa el cuadrado de punta a punta, sin
+  margen, así que cualquier máscara que no sea exactamente cuadrada le
+  come contenido.
+- Corregido con el mismo criterio de "safe zone" que ya se usaba para el
+  ícono con el monograma "A" (62% del canvas, centrado, con relleno del
+  color casi blanco de fondo de la propia ilustración) -- así la máscara,
+  sea cual sea su forma, recorta solo el margen en blanco y nunca el
+  dibujo real. Mismo archivo `ic_launcher_foto.png`, no hizo falta tocar
+  los XML del ícono adaptativo.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL` y
+  revisando el PNG generado a ojo antes de instalar.
+
+**Pop up del día en vez de panel plano, estilo timeline con stickers.**
+Pedido explícito de la usuaria: no le gustó el "×" pelado para borrar un
+evento, y pidió que tocar un día del calendario abra un pop up con sus
+eventos "como vista por hora", bien girly, usando sus stickers.
+
+- **`DialogoDia` (`AgendaScreen.kt`)**: tocar una celda del calendario
+  (`DiaCelda.onClick`) ahora abre un `Dialog` en vez de solo actualizar el
+  panel de abajo -- `PanelDiaSeleccionado` se eliminó por completo, el pop
+  up lo reemplaza. Header en degradé morado→rosa con el día en Aclonica,
+  botón "✕" para cerrar, dos stickers de flor rotados en las esquinas
+  (mismo criterio que `TarjetaConStickers`, pero armado a mano porque un
+  `Dialog` no es una `Card` común). Si no hay nada agendado, muestra el
+  mismo mensaje de antes pero centrado dentro del pop up.
+- **Vista "por hora" simplificada**: en vez de una grilla con las 16 horas
+  del día (la mayoría vacías), los ítems (entrevistas + eventos) se
+  ordenan cronológicamente con "todo el día" primero -- mismo criterio de
+  orden que ya usaba la web (`sortedBy { it.hora ?: '' }`), solo que ahora
+  con la hora bien destacada a la izquierda de cada fila (`FilaTimeline`)
+  en vez de un texto gris chico. Se evaluó una grilla de horas fija
+  (7 a 22, como `HORA_INICIO_SEMANA`/`HORA_FIN_SEMANA` en agenda.ts) pero
+  se descartó: la mayoría de los días tienen 1-3 ítems, una grilla de 16
+  franjas mayormente vacías se ve más pobre que una lista prolija
+  ordenada por hora.
+- **Borrar ya no es un "×" pelado**: `FilaTimeline` tiene un botón
+  circular con fondo coral tenue y el ícono 🗑 en vez de texto plano --
+  sigue siendo exclusivo de eventos personales, no de entrevistas.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta confirmar a mano que el pop up se vea bien
+  (tamaño, scroll si hay muchos ítems, que los stickers no se corten
+  contra los bordes de la pantalla) y que borrar un evento desde ahí
+  actualice el pop up sin cerrarlo.
+
+**Ícono, tercera vuelta.** `agenda/imagenes/WhatsApp Image 2026-08-31 at
+5.44.48 PM.jpeg` (otro diseño cuadrado de agenda/planner, estilo 3D
+rosa/morado con corazones) reemplaza al anterior -- mismo tratamiento de
+safe zone (62%, centrado), pero esta vez el color de relleno se tomó de
+la esquina real de la imagen (negro, no blanco) para que combine con el
+margen que ya trae el diseño en vez de dejar un borde blanco que no pega.
+Mismo archivo `ic_launcher_foto.png`, sin tocar los XML.
+
+**Corrección: esa imagen no era para el ícono de la app.** Malentendido de
+mi parte -- `Icono Definitivoa.jpeg` es y sigue siendo el ícono de la app
+(el del launcher, se revirtió `ic_launcher_foto.png` a esa imagen). La
+`WhatsApp Image...5.44.48 PM.jpeg` era para la pestaña "Agenda" del bottom
+nav, mismo tratamiento que ya tenía la pestaña de Annie (su foto en vez de
+un emoji): se agregó `res/drawable/tab_agenda.png` (96px) y
+`MainActivity.kt` ahora la usa para `Pestana.AGENDA` en vez del emoji
+"🗓", recortada en círculo de 24dp igual que la de Annie. Verificado con
+`./gradlew assembleDebug` → `BUILD SUCCESSFUL`.
+
+**Corrección: el recorte circular le comía el ícono de Agenda.** A
+diferencia de la foto de Annie (un retrato, un círculo le queda bien), el
+ícono de Agenda es un diseño cuadrado de punta a punta -- lapicera a la
+izquierda, sello de tilde en la esquina -- y `ContentScale.Crop` +
+`CircleShape` le cortaba justo esos detalles, quedando irreconocible de
+chico. Cambiado a `ContentScale.Fit` + `RoundedCornerShape(7.dp)` a 26dp:
+se ve el diseño completo, sin recortar nada. La pestaña de Annie no se
+tocó, el círculo le sigue quedando bien.
+
+**Push real en Android (Firebase Cloud Messaging).** La usuaria agregó una
+app Android al proyecto Firebase `turnero-ec3cd` (el mismo que ya usa la
+web) desde la consola y pasó el `google-services.json` resultante -- antes
+esto era el bloqueo explícito para no poder avanzar del lado Android, ver
+checkpoints anteriores.
+
+- `google-services.json` va en `android/app/` (no en un submódulo
+  distinto, es donde el plugin de Gradle lo espera). Se agregó el plugin
+  `com.google.gms.google-services` (root `build.gradle.kts` lo declara,
+  `app/build.gradle.kts` lo aplica) más `firebase-bom` +
+  `firebase-messaging`.
+- **`data/AgendaFirebaseMessagingService.kt`**: recibe los push que ya
+  manda el backend (`recordatoriosEntrevistas.js`, y ahora también
+  `emailSync.js`) y los muestra como notificación real del sistema (canal
+  `agenda_push`, toca la notificación abre la app). Registrado en
+  `AndroidManifest.xml` con el intent-filter
+  `com.google.firebase.MESSAGING_EVENT`.
+- **Registro del token (`data/FcmTokenProvider.kt`,
+  `AuthApi.kt`/`AuthRepository.kt`)**: mismo endpoint que ya usa la web
+  (`PUT /auth/fcm-token`, ver `push.service.ts`). `obtenerTokenFcm()`
+  envuelve la API con `Task` de Firebase en una funcion `suspend` a mano
+  (con `suspendCancellableCoroutine`) para no sumar la dependencia de
+  `kotlinx-coroutines-play-services` solo por esto.
+- **`MainActivity.kt`**: al entrar a "principal" (mismo momento que el
+  saludo de Annie) pide el permiso `POST_NOTIFICATIONS` (Android 13+
+  solamente, versiones previas no lo piden) y manda el token actual al
+  backend -- se re-registra en cada apertura de la app ya logueada, no
+  solo la primera vez, para no quedar con un token viejo si Firebase lo
+  rota.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL` (con
+  `processDebugGoogleServices` corriendo, confirma que el
+  `google-services.json` se procesó bien). Mismo límite de siempre: falta
+  probar a mano que llegue una notificación real al celular (por ejemplo
+  disparando `recordatoriosEntrevistas.js` o una postulación nueva por
+  mail) y que tocarla abra la app.
+- **Probado en vivo (2026-09-01):** se mandó un push de prueba a mano
+  (script chico con `getMessaging(app).send(...)` contra el `fcm_token`
+  real ya guardado) y llegó a la bandeja de notificaciones de Android
+  aunque la app estuviera cerrada -- funciona de punta a punta.
+
+**"Mientras no estuviste" portado a la Annie de Android.** Mismo endpoint
+que ya usa la web (`GET /annie/actividad-pendiente`, ver más arriba) --
+`AnnieViewModel.saludar()` ahora también lo pide y lo suma al saludo:
+`"¡Bienvenida a tu Agenda Inteligente! ¿En qué puedo ayudarte hoy,
+{nombre}? Mientras no estuviste, pasó esto: {resumen}."`. Se agregó
+`AnnieApi.actividadPendiente()` / `AnnieRepository.actividadPendiente()` /
+`ActividadPendienteResponse` siguiendo el mismo patrón que el resto de los
+endpoints de Annie. Verificado con `./gradlew assembleDebug` →
+`BUILD SUCCESSFUL`. Falta probar a mano que el resumen aparezca de verdad
+cuando haya actividad pendiente real.
+
+**Configuración -- último placeholder del bottom nav, ahora con paridad
+completa con la web.** Pedido explícito de la usuaria: perfil (nombre,
+email, foto), contraseña, notificaciones, idioma y apariencia, todo junto.
+
+- **`data/AuthModels.kt`/`AuthApi.kt`/`AuthRepository.kt`**: `PerfilDto`
+  pasó de tener solo `nombre` (lo único que usaba el saludo de Annie) a
+  los mismos campos que devuelve `GET /auth/perfil`
+  (email/foto_perfil/idioma/tema/notificaciones_activas). `NombreUpdate`
+  se reemplazó por `PerfilUpdate` (todos los campos opcionales -- Gson por
+  defecto omite los que quedan en `null`, así que solo se manda lo que se
+  quiere cambiar, igual que `DatosPerfil` en perfil.service.ts). Nuevos
+  endpoints: `PUT /auth/email` (devuelve un token nuevo porque el JWT
+  lleva el email embebido, se reemplaza el guardado igual que `setToken()`
+  en auth.service.ts), `PUT /auth/password`, y
+  `POST /auth/foto-perfil` como `@Multipart`.
+- **Foto de perfil**: selector nativo de imágenes
+  (`ActivityResultContracts.PickVisualMedia`, sin pedir permiso de
+  almacenamiento) → se leen los bytes con `ContentResolver` → se suben
+  como `MultipartBody.Part`. Para mostrarla no se sumó Coil (una sola
+  imagen, no vale la pena la dependencia): `FotoPerfil` en
+  `ConfiguracionScreen.kt` arma la URL completa a mano
+  (`NetworkModule.BASE_URL`, ahora no-privado, + la ruta relativa que
+  devuelve el backend) y decodifica el bitmap con
+  `BitmapFactory.decodeStream()` en un hilo de IO.
+- **Notificaciones**: el toggle activa/desactiva de verdad -- registra o
+  borra (`null`) el token FCM contra el mismo endpoint que ya usa el push,
+  y guarda `notificaciones_activas` en el perfil. Esto obligó a ajustar
+  `MainActivity.kt`: el registro automático de token al abrir la app ahora
+  primero chequea `notificaciones_activas` (si es `0` no re-registra) --
+  si no, el auto-registro de cada apertura pisaba la desactivación manual
+  en el siguiente `LaunchedEffect`.
+- **Idioma y apariencia**: se agregaron como toggles (`FilterChip`) que
+  solo actualizan el backend -- Android no tiene i18n ni lee el tema del
+  perfil todavía (usa el modo claro/oscuro del sistema, ver `Tema.kt`), así
+  que hoy no cambian nada visible en la app. Se dejó un texto chico
+  aclarando esto en cada tarjeta para que no parezca roto.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Mismo
+  límite de siempre: falta probar a mano cada acción (subir foto, cambiar
+  email/contraseña, activar/desactivar notificaciones) contra el backend
+  real.
+
+**Foto de perfil visible en la Agenda, no solo en Configuración.** La
+usuaria probó Configuración y notó que la foto solo se veía ahí --
+"en la pantalla principal no se aprecia el perfil".
+
+- **`ui/common/AvatarPerfil.kt`** (nuevo): se extrajo el `FotoPerfil`
+  privado que vivía solo dentro de `ConfiguracionScreen.kt` a un
+  composable compartido (`AvatarPerfil(ruta, inicial, tamano)`), para
+  poder usarlo también en el encabezado de Agenda. `ConfiguracionScreen.kt`
+  ahora lo importa en vez de tener su propia copia.
+- **`ui/agenda/AgendaViewModel.kt`**: recibe `AuthRepository` como tercer
+  parámetro del constructor; `cargar()` ahora también pide
+  `GET /auth/perfil` y guarda `nombreUsuaria`/`fotoPerfilUrl`, igual que ya
+  hacía el saludo de Annie -- así si se cambia la foto en Configuración y
+  se vuelve a la pestaña Agenda, se ve la nueva sin reabrir la app.
+- **`ui/agenda/AgendaScreen.kt`**: el encabezado (antes solo el título
+  "Agenda" + "Cerrar sesión") ahora muestra `AvatarPerfil` de 36dp al lado
+  del título.
+- **`MainActivity.kt`**: se actualizó el `AgendaViewModel.factory(...)`
+  para pasar `authRepository`, que ya estaba disponible en `PrincipalScreen`.
+- Verificado con `./gradlew assembleDebug` → `BUILD SUCCESSFUL`. Falta
+  probar a mano que la foto (o la inicial, si todavía no subió ninguna) se
+  vea en la pestaña Agenda.
+
+## Publicación en Google Play
+
+Pedido explícito de la usuaria: dejar la app Android lista para publicarse
+**públicamente** (cualquiera la puede instalar), no solo para uso propio.
+Esto trajo tres decisiones de fondo, resueltas antes de tocar código (ver
+también "Multi-tenancy" y "Límite diario de Annie" más arriba, que son
+parte del mismo trabajo):
+
+1. **Alcance: pública.** Motivó la migración de multi-tenancy de arriba —
+   sin `usuario_id` en postulaciones/eventos, cualquier cuenta nueva vería
+   los datos reales de Ana.
+2. **Backend: sigue en la PC de Ana por ahora.** El hosting real en
+   internet queda para más adelante, justo antes de enviar la app a
+   revisión de verdad — este trabajo deja el *código* listo (firma,
+   multi-tenancy, límite de Annie, assets) sin todavía levantar un servidor
+   público. Es el único pendiente real para publicar de verdad, ver el
+   checklist al final de esta sección.
+3. **Costo de Annie: límite diario por cuenta**, no restringirla solo a la
+   cuenta dueña ni dejarla sin límite — ver "Límite diario de Annie" en la
+   sección de Annie más arriba.
+
+### Firma de release y configuración de build
+
+`android/app/build.gradle.kts` no tenía ningún `signingConfigs` ni
+`proguard-rules.pro` — `assembleRelease`/`bundleRelease` producían un
+artefacto sin firmar, y `isMinifyEnabled` estaba en `false` (nunca hizo
+falta ProGuard hasta ahora).
+
+- **Keystore**: vive fuera del repo (`android/key.properties`, gitignored,
+  con `storeFile`/`storePassword`/`keyAlias`/`keyPassword`). El
+  `build.gradle.kts` lo carga de forma condicional — si el archivo no
+  existe (ej. en una máquina de desarrollo sin el keystore) el build de
+  debug sigue andando igual, solo `assembleRelease`/`bundleRelease` de
+  verdad lo necesitan. **Generar el keystore es un paso para hacer en vivo
+  con Ana**, no algo para decidir en su nombre: perder esas contraseñas
+  significa no poder volver a actualizar la app bajo la misma identidad en
+  Play. Guardarlas en un gestor de contraseñas, nunca en un archivo junto
+  al keystore.
+- **`buildTypes.release`**: `isMinifyEnabled = true` +
+  `isShrinkResources = true` (antes en `false`), con
+  `proguard-rules.pro` nuevo (reglas keep para Retrofit, Gson y Firebase
+  Messaging — sin esto, R8 puede renombrar/eliminar justo lo que esas
+  librerías necesitan por reflexión y romper el parseo de respuestas del
+  backend recién en release, no en debug).
+- **`API_BASE_URL` vía `BuildConfig`** (`buildFeatures.buildConfig = true`,
+  `buildConfigField` por build type) en vez de la constante hardcodeada
+  que tenía antes `NetworkModule.kt` — debug y release apuntan hoy a la
+  misma IP LAN (no hay hosting real todavía), pero el día que lo haya,
+  cambiar la URL de release es una sola línea de Gradle, sin tocar Kotlin.
+- **Logging de OkHttp gateado a debug**: `HttpLoggingInterceptor` corría
+  siempre, incluso en release, filtrando metadata de cada request
+  (incluido que hay un header `Authorization`) al logcat — ahora usa
+  `BuildConfig.DEBUG` para decidir `BASIC` vs `NONE`.
+- **`versionCode`/`versionName`**: subieron de `1`/`"0.1"` (placeholders)
+  a `2`/`"1.0.0"` para el primer candidato publicable. Convención de acá
+  en adelante: `versionCode` +1 en cada subida a Play, para siempre, nunca
+  se reutiliza; `versionName` es un semver humano que se sube por release
+  con cambios de verdad.
+- **`google-services.json` sin gitignorar**: nunca se había commiteado
+  (quedaba como archivo sin trackear), pero nada impedía que un `git add
+  -A` futuro lo subiera a un repo que podría hacerse público — contiene el
+  project id y una API key reales de Firebase. Se agregó al `.gitignore`
+  junto con `key.properties`.
+- **Verificado en el celular real, no solo con `BUILD SUCCESSFUL`**: se
+  compiló `bundleRelease`/`assembleRelease` con R8 activado, se firmó el
+  APK con el keystore de debug **solo para esta prueba puntual** (nunca
+  para publicar de verdad) y se instaló — Annie saludó por nombre
+  correctamente (ejercita Retrofit + deserialización Gson bajo R8, el
+  riesgo real de activar la minificación por primera vez) sin ningún
+  crash en logcat.
+
+### Assets de la ficha de Play Store
+
+Nueva carpeta `play-store-assets/` (gitignored, mismo criterio que
+`imagenes/`), generada con Pillow (Python) por no haber `ImageMagick`
+instalado en el entorno:
+
+- **`icon-512.png`**: mismo archivo que ya se usa como ícono de la app
+  (`ic_launcher_foto.png`, ya tratado con relleno en un checkpoint
+  anterior a partir de `imagenes/Icono Definitivoa.jpeg`) reescalado a
+  512×512 PNG plano — mismo diseño en la ficha de Play que en el
+  launcher, no un recorte distinto.
+- **`feature-graphic-1024x500.png`**: no existía ningún asset en esa
+  proporción, así que se compuso desde cero — gradiente diagonal con los
+  colores reales de marca (`ui/theme/Tema.kt`: `accentPurple`/
+  `accentPurpleDeep`/`accentPink`/`accentPinkDeep`), un par de los
+  stickers de flores ya usados en la app como textura de esquina, el
+  ícono de la app en una tarjeta blanca redondeada, y el nombre + firma
+  "UN PRODUCTO DE ANADESING" en Aclonica. Es un **placeholder
+  presentable, no arte final** — Ana puede reemplazarlo después (Procreate/
+  Canva) sin tocar ningún código, es solo un archivo que se sube a Play
+  Console.
+
+### Todavía necesita a un humano antes de publicar
+
+Ninguno de estos pasos se resolvió en este trabajo — quedan explícitamente
+pendientes:
+
+- **El hosting real del backend.** El bloqueo de verdad: mientras el
+  backend viva en la PC de Ana con IP de LAN, la app publicada no
+  funciona para nadie fuera de esa red (ni los revisores de Google, ni
+  ninguna cuenta pública real). Implica elegir un proveedor, HTTPS/dominio,
+  mover las variables de entorno (claves de Anthropic/ElevenLabs/IMAP/
+  Firebase), y decidir qué pasa con el archivo SQLite (backup, o migrar a
+  algo gestionado). Una vez resuelto, el cambio en Android es una sola
+  línea (`API_BASE_URL` en el `release` de `build.gradle.kts`, ver arriba)
+  y ahí sí tiene sentido sacar `android:usesCleartextTraffic="true"` del
+  manifest.
+- **Cuenta de desarrollador de Google Play** (pago único de USD 25).
+- **Requisito de testing cerrado para cuentas nuevas de Play Console**:
+  actualmente Google pide ~12 testers que opten explícitamente y 14 días
+  continuos de testing antes de habilitar producción — conviene verificar
+  la cifra exacta al momento de publicar, Google la ha cambiado antes.
+- **Política de privacidad**: hace falta redactarla (qué se recolecta:
+  email, hash de contraseña, foto de perfil, contenido de postulaciones/
+  eventos, token FCM, texto que se manda a Anthropic/ElevenLabs vía Annie)
+  y alojarla en algún lado con URL pública — esto **no** depende del
+  hosting del backend, se puede resolver ya (ej. GitHub Pages).
+- **Formulario de seguridad de datos de Play Console**: tiene que declarar
+  con honestidad que hoy el tráfico va sin cifrar (HTTP plano en LAN) hasta
+  que haya hosting real, y que no existe todavía un flujo de borrado de
+  cuenta desde la app (Play generalmente lo espera).
+- **Cuestionario de clasificación de contenido.**

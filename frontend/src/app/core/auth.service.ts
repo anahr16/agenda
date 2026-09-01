@@ -56,6 +56,12 @@ export class AuthService {
     this.usuario.set(null);
   }
 
+  /** Reemplaza el token guardado sin pasar por /auth/login -- usado al cambiar el email, que devuelve un token nuevo porque el viejo tiene el email anterior embebido. */
+  setToken(token: string): void {
+    localStorage.setItem(TOKEN_KEY, token);
+    this.usuario.set(decodeToken(token));
+  }
+
   getToken(): string | null {
     return localStorage.getItem(TOKEN_KEY);
   }

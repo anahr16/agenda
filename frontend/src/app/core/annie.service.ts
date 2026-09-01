@@ -26,4 +26,9 @@ export class AnnieService {
   hablar(texto: string) {
     return this.http.post(`${this.base}/tts`, { texto }, { responseType: 'blob' });
   }
+
+  /** "Mientras no estuviste" del saludo -- ver actividad_postulaciones en el backend. */
+  actividadPendiente() {
+    return this.http.get<{ actividad: string[] }>(`${this.base}/actividad-pendiente`);
+  }
 }

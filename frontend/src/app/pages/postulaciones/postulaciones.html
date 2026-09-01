@@ -1,16 +1,16 @@
 <div class="page-head">
   <div>
-    <h1 class="page-title display">Postulaciones</h1>
-    <p class="page-sub">Seguimiento de tu búsqueda laboral</p>
+    <h1 class="page-title display">{{ 'postulaciones.titulo' | translate }}</h1>
+    <p class="page-sub">{{ 'postulaciones.subtitulo' | translate }}</p>
   </div>
   <div class="page-head-acciones">
     <button type="button" class="btn-recalcular" [disabled]="recalculando()" (click)="recalcularCompatibilidad()">
-      {{ recalculando() ? 'Recalculando…' : 'Recalcular compatibilidad' }}
+      {{ (recalculando() ? 'postulaciones.recalculando' : 'postulaciones.recalcularCompatibilidad') | translate }}
     </button>
     @if (!mostrarFormulario()) {
       <button type="button" class="btn-add" (click)="abrirNueva()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Nueva postulación
+        {{ 'postulaciones.nuevaPostulacion' | translate }}
       </button>
     }
   </div>
@@ -23,23 +23,23 @@
 <ng-template #formularioPostulacion>
   <form class="card postulacion-form" (ngSubmit)="guardar()">
     <div class="campo">
-      <label for="empresa">Empresa</label>
+      <label for="empresa">{{ 'postulaciones.campo.empresa' | translate }}</label>
       <input id="empresa" type="text" name="empresa" [(ngModel)]="empresa" required />
     </div>
     <div class="campo">
-      <label for="puesto">Puesto</label>
+      <label for="puesto">{{ 'postulaciones.campo.puesto' | translate }}</label>
       <input id="puesto" type="text" name="puesto" [(ngModel)]="puesto" required />
     </div>
     <div class="campo">
-      <label for="portal">Portal</label>
+      <label for="portal">{{ 'postulaciones.campo.portal' | translate }}</label>
       <input id="portal" type="text" name="portal" placeholder="LinkedIn, Computrabajo…" [(ngModel)]="portal" />
     </div>
     <div class="campo">
-      <label for="fecha_postulacion">Fecha de postulación</label>
+      <label for="fecha_postulacion">{{ 'postulaciones.campo.fechaPostulacion' | translate }}</label>
       <input id="fecha_postulacion" type="date" name="fecha_postulacion" [(ngModel)]="fecha_postulacion" required />
     </div>
     <div class="campo">
-      <label for="estado">Estado</label>
+      <label for="estado">{{ 'postulaciones.campo.estado' | translate }}</label>
       <select id="estado" name="estado" [(ngModel)]="estado">
         @for (e of estados; track e) {
           <option [value]="e">{{ etiqueta(e) }}</option>
@@ -47,19 +47,19 @@
       </select>
     </div>
     <div class="campo">
-      <label for="fecha_entrevista">Entrevista (opcional)</label>
+      <label for="fecha_entrevista">{{ 'postulaciones.campo.fechaEntrevistaOpcional' | translate }}</label>
       <input id="fecha_entrevista" type="datetime-local" name="fecha_entrevista" [(ngModel)]="fecha_entrevista" />
     </div>
     <div class="campo">
-      <label for="link">Link (opcional)</label>
+      <label for="link">{{ 'postulaciones.campo.linkOpcional' | translate }}</label>
       <input id="link" type="url" name="link" [(ngModel)]="link" />
     </div>
     <div class="campo campo-ancho">
-      <label for="descripcion">De qué trata (opcional)</label>
+      <label for="descripcion">{{ 'postulaciones.campo.deQueTrata' | translate }}</label>
       <input id="descripcion" type="text" name="descripcion" [(ngModel)]="descripcion" />
     </div>
     <div class="campo campo-ancho">
-      <label for="notas">Notas (opcional)</label>
+      <label for="notas">{{ 'postulaciones.campo.notasOpcional' | translate }}</label>
       <input id="notas" type="text" name="notas" [(ngModel)]="notas" />
     </div>
 
@@ -68,8 +68,8 @@
     }
 
     <div class="form-acciones">
-      <button type="submit" class="btn-add">{{ editandoId() ? 'Guardar cambios' : 'Agregar postulación' }}</button>
-      <button type="button" class="btn-cancelar" (click)="cancelarEdicion()">Cancelar</button>
+      <button type="submit" class="btn-add">{{ (editandoId() ? 'comun.guardarCambios' : 'postulaciones.agregarPostulacion') | translate }}</button>
+      <button type="button" class="btn-cancelar" (click)="cancelarEdicion()">{{ 'comun.cancelar' | translate }}</button>
     </div>
   </form>
 </ng-template>
@@ -82,26 +82,52 @@
   <div class="card revision-card">
     <div class="revision-head">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8m18 0-8.97 6.646a2 2 0 0 1-2.06 0L2 8m19 0a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2m18 0v.2"/></svg>
-      <h2>Mails sin identificar ({{ mailsRevision().length }})</h2>
+      <h2>{{ 'postulaciones.mailsSinIdentificar' | translate: { cantidad: mailsRevision().length } }}</h2>
     </div>
-    <p class="revision-sub">No matchean ningún portal conocido pero parecen de un proceso de postulación. Revisalos y cargalos a mano, o descartalos.</p>
+    <p class="revision-sub">{{ 'postulaciones.revisionSub' | translate }}</p>
+
+    <div class="revision-bulk-bar">
+      <label class="revision-check-todos">
+        <input type="checkbox" [checked]="todosSeleccionadosRevision()" (change)="toggleSeleccionarTodosRevision()" />
+        {{ 'postulaciones.seleccionarTodos' | translate }}
+      </label>
+      @if (seleccionadosRevision().size > 0) {
+        <span class="revision-bulk-cantidad">{{ 'postulaciones.seleccionados' | translate: { cantidad: seleccionadosRevision().size } }}</span>
+        <button type="button" class="btn-bulk-agregar" [disabled]="procesandoBulk()" (click)="cargarSeleccionadosComoPostulaciones()">
+          {{ (procesandoBulk() ? 'postulaciones.agregando' : 'postulaciones.agregarTodos') | translate }}
+        </button>
+        <button type="button" class="btn-bulk-descartar" [disabled]="procesandoBulk()" (click)="descartarSeleccionados()">
+          {{ (procesandoBulk() ? 'postulaciones.descartando' : 'postulaciones.descartarTodos') | translate }}
+        </button>
+      }
+    </div>
+
     <div class="revision-list">
       @for (m of mailsRevision(); track m.id) {
         <div class="revision-item">
-          <button type="button" class="revision-row" (click)="toggleExpandidoRevision(m.id)">
-            <div class="revision-body">
-              <div class="revision-remitente">{{ m.remitente || 'Remitente desconocido' }}</div>
-              <div class="revision-asunto">{{ m.asunto || '(sin asunto)' }}</div>
-            </div>
-            <span class="revision-fecha">{{ formatoEntrevista(m.fecha_recibido) }}</span>
-            <svg class="chevron" [class.abierto]="expandidoRevisionId() === m.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
+          <div class="revision-row">
+            <input
+              type="checkbox"
+              class="revision-checkbox"
+              [checked]="estaSeleccionado(m.id)"
+              (click)="$event.stopPropagation()"
+              (change)="toggleSeleccionRevision(m.id)"
+            />
+            <button type="button" class="revision-row-main" (click)="toggleExpandidoRevision(m.id)">
+              <div class="revision-body">
+                <div class="revision-remitente">{{ m.remitente || ('postulaciones.remitenteDesconocido' | translate) }}</div>
+                <div class="revision-asunto">{{ m.asunto || ('postulaciones.sinAsunto' | translate) }}</div>
+              </div>
+              <span class="revision-fecha">{{ formatoEntrevista(m.fecha_recibido) }}</span>
+              <svg class="chevron" [class.abierto]="expandidoRevisionId() === m.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </div>
           @if (expandidoRevisionId() === m.id) {
             <div class="revision-detail">
               <p>{{ m.cuerpo }}</p>
               <div class="post-acciones">
-                <button type="button" class="btn-editar" (click)="cargarDesdeRevision(m)">Cargar como postulación</button>
-                <button type="button" class="btn-borrar" (click)="descartarRevision(m)">Descartar</button>
+                <button type="button" class="btn-editar" (click)="cargarDesdeRevision(m)">{{ 'postulaciones.cargarComoPostulacion' | translate }}</button>
+                <button type="button" class="btn-borrar" (click)="descartarRevision(m)">{{ 'postulaciones.descartar' | translate }}</button>
               </div>
             </div>
           }
@@ -115,11 +141,11 @@
   <div class="card stats-card">
     <div class="stats-hero">
       <div class="num">{{ stats()!.total }}</div>
-      <div class="lbl">postulaciones</div>
+      <div class="lbl">{{ 'postulaciones.postulacionesLbl' | translate }}</div>
     </div>
     <div class="stats-bars">
       @for (b of barras(); track b.estado) {
-        <div class="stat-bar-row" [title]="b.n + ' de ' + stats()!.total + ' postulaciones · ' + b.pct + '%'">
+        <div class="stat-bar-row" [title]="'postulaciones.deNTotal' | translate: { n: b.n, total: stats()!.total, pct: b.pct }">
           <span class="stat-bar-label">{{ b.etiqueta }}</span>
           <span class="stat-bar-track">
             <span class="stat-bar-fill" [style.width.%]="b.pct" [style.background]="b.color"></span>
@@ -133,7 +159,7 @@
 
 <div class="search-row">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-  <input type="text" placeholder="Buscar por empresa o puesto…" [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
+  <input type="text" [placeholder]="'postulaciones.buscarPlaceholder' | translate" [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
 </div>
 
 <div class="filtro-row">
@@ -166,10 +192,10 @@
           </div>
         </div>
         @if (p.compatibilidad_oferta !== null) {
-          <span class="compat-pill" [title]="p.compatibilidad_razon || ''">{{ p.compatibilidad_oferta }}% compatibilidad</span>
+          <span class="compat-pill" [title]="p.compatibilidad_razon || ''">{{ 'postulaciones.pctCompatibilidad' | translate: { pct: p.compatibilidad_oferta } }}</span>
         }
         @if (p.probabilidad_llamada !== null) {
-          <span class="prob-pill" title="Estimación heurística en base a tus datos, no una garantía">{{ p.probabilidad_llamada }}% prob. llamada</span>
+          <span class="prob-pill" [title]="'postulaciones.probLlamadaTitle' | translate">{{ 'postulaciones.pctProbLlamada' | translate: { pct: p.probabilidad_llamada } }}</span>
         }
         <span class="estado-pill estado-{{ p.estado }}">{{ etiqueta(p.estado) }}</span>
         <svg class="chevron" [class.abierto]="expandidoId() === p.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -180,27 +206,27 @@
         </div>
       } @else if (expandidoId() === p.id) {
         <div class="post-detail">
-          <p>{{ p.descripcion || 'Sin descripción cargada.' }}</p>
+          <p>{{ p.descripcion || ('postulaciones.sinDescripcion' | translate) }}</p>
           @if (p.compatibilidad_oferta !== null) {
-            <p class="post-compatibilidad"><strong>Compatibilidad con la oferta ({{ p.compatibilidad_oferta }}%):</strong> {{ p.compatibilidad_razon }}</p>
+            <p class="post-compatibilidad"><strong>{{ 'postulaciones.compatibilidadConLaOferta' | translate: { pct: p.compatibilidad_oferta } }}</strong> {{ p.compatibilidad_razon }}</p>
           }
           @if (p.fecha_entrevista) {
-            <p class="post-entrevista"><strong>Entrevista:</strong> {{ formatoEntrevista(p.fecha_entrevista) }}</p>
+            <p class="post-entrevista"><strong>{{ 'postulaciones.entrevistaLbl' | translate }}</strong> {{ formatoEntrevista(p.fecha_entrevista) }}</p>
           }
           @if (p.notas) {
-            <p class="post-notas"><strong>Notas:</strong> {{ p.notas }}</p>
+            <p class="post-notas"><strong>{{ 'postulaciones.notasLbl' | translate }}</strong> {{ p.notas }}</p>
           }
           @if (p.link) {
-            <a class="post-link" [href]="p.link" target="_blank" rel="noopener">Ver aviso original →</a>
+            <a class="post-link" [href]="p.link" target="_blank" rel="noopener">{{ 'postulaciones.verAvisoOriginal' | translate }}</a>
           }
           <div class="post-acciones">
-            <button type="button" class="btn-editar" (click)="editar(p)">Editar</button>
-            <button type="button" class="btn-borrar" (click)="borrar(p)">Borrar</button>
+            <button type="button" class="btn-editar" (click)="editar(p)">{{ 'comun.editar' | translate }}</button>
+            <button type="button" class="btn-borrar" (click)="borrar(p)">{{ 'comun.borrar' | translate }}</button>
           </div>
         </div>
       }
     </div>
   } @empty {
-    <div class="card empty-note">Todavía no hay postulaciones cargadas.</div>
+    <div class="card empty-note">{{ 'postulaciones.vacio' | translate }}</div>
   }
 </div>

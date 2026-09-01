@@ -33,6 +33,11 @@ export class EventosService {
 
   constructor(private http: HttpClient) {}
 
+  /** Se llama al cerrar sesion -- sin esto, si otra cuenta se loguea en la misma pestaña, veria por un instante los datos cacheados de la cuenta anterior. */
+  reset(): void {
+    this.eventos.set([]);
+  }
+
   listar() {
     return this.http.get<Evento[]>(this.base).pipe(tap((lista) => this.eventos.set(lista)));
   }

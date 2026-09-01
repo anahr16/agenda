@@ -42,11 +42,15 @@ async function procesarRecordatoriosEntrevistas() {
 
   if (postulaciones.length === 0) return;
 
-  const usuarios = db.prepare('SELECT * FROM usuarios WHERE fcm_token IS NOT NULL').all();
-  if (usuarios.length === 0) return;
-
+  // A diferencia de emailSync.js (un solo mailbox), postulaciones ya tiene
+  // usuario_id real para cada cuenta -- cada entrevista se le avisa solo a
+  // quien es dueña de esa postulacion puntual, no a todas las cuentas
+  // registradas con notificaciones activas.
   for (const postulacion of postulaciones) {
-    for (const usuario of usuarios) {
+    const usuario = postulacion.usuario_id
+      ? db.prepare('SELECT fcm_token FROM usuarios WHERE id = ? AND fcm_token IS NOT NULL').get(postulacion.usuario_id)
+      : null;
+    if (usuario) {
       try {
         await enviarPush(usuario.fcm_token, postulacion);
       } catch (err) {

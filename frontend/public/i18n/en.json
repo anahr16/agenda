@@ -1,0 +1,272 @@
+{
+  "comun": {
+    "cancelar": "Cancel",
+    "guardar": "Save",
+    "guardarCambios": "Save changes",
+    "editar": "Edit",
+    "borrar": "Delete",
+    "todas": "All"
+  },
+  "login": {
+    "bienvenidaDeNuevo": "Welcome back",
+    "creaTuCuenta": "Create your account",
+    "subtitulo": "Your interviews and job applications, all in one place.",
+    "email": "Email",
+    "contrasena": "Password",
+    "ingresar": "Sign in",
+    "registrarme": "Sign up",
+    "noTienesCuenta": "Don't have an account?",
+    "yaTienesCuenta": "Already have an account?",
+    "crearUna": "Create one",
+    "iniciarSesion": "Sign in",
+    "firmaCredit": "A product by Anadesing",
+    "annieHeroTitulo": "Hi, I'm Annie",
+    "annieHeroTag": "I check your emails, let you know as soon as something important happens, and help you never miss an interview.",
+    "chipNuevaPostulacion": "New application detected",
+    "chipOferta": "Possible offer on its way",
+    "usuarioCreado": "Account created. Now sign in.",
+    "errorGenerico": "Something went wrong, try again."
+  },
+  "shell": {
+    "nav": {
+      "agenda": "Calendar",
+      "postulaciones": "Applications"
+    },
+    "proximasEntrevistas": "Upcoming interviews",
+    "annie": {
+      "tuAsistente": "Your assistant",
+      "escribiendo": "Typing…",
+      "silenciar": "Mute Annie",
+      "activarVoz": "Turn on Annie's voice",
+      "hablarle": "Talk to Annie",
+      "placeholder": "Write something to Annie…",
+      "enviar": "Send",
+      "errorRespuesta": "Annie couldn't respond. Try again.",
+      "limiteAlcanzado": "You've reached Annie's daily message limit. Try again tomorrow.",
+      "saludo": "Welcome to your Agenda Inteligente!",
+      "pedirNombre": "Before we start, what should I call you?",
+      "preguntaAyuda": "How can I help you today, {{nombre}}?",
+      "nombreGuardado": "Nice to meet you, {{nombre}}! How can I help you today?",
+      "mientrasNoEstuviste": "While you were away, this happened: {{resumen}}."
+    },
+    "actividad": {
+      "oferta": "Offer from {{empresa}} ({{puesto}})!",
+      "entrevista": "Interview scheduled with {{empresa}} ({{puesto}})",
+      "rechazada": "{{empresa}} ({{puesto}}) replied: not moving forward",
+      "vista": "{{empresa}} ({{puesto}}) viewed your application",
+      "nueva": "New application detected: {{empresa}} ({{puesto}})"
+    },
+    "mensaje": {
+      "oferta": "You have an offer from {{empresa}} ({{puesto}})!",
+      "entrevista": "You've been scheduled for an interview with {{empresa}} ({{puesto}}).",
+      "rechazada": "{{empresa}} ({{puesto}}) replied that you won't be moving forward this time.",
+      "vista": "{{empresa}} ({{puesto}}) viewed your application.",
+      "default": "{{empresa}} ({{puesto}}) updated your application to \"{{estado}}\".",
+      "nueva": "New application detected: {{empresa}} ({{puesto}})."
+    },
+    "recordatorio": {
+      "evento": "Reminder: {{titulo}} at {{hora}}",
+      "entrevista": "Reminder: interview with {{empresa}} ({{puesto}}) at {{hora}}."
+    },
+    "salir": "Log out",
+    "configuracion": "Settings"
+  },
+  "notificaciones": {
+    "activadas": "Notifications turned on.",
+    "desactivadas": "Notifications turned off.",
+    "noSePudoActivar": "Couldn't turn it on.",
+    "error": {
+      "firebaseNoConfigurado": "Firebase isn't configured yet.",
+      "noSoportado": "This browser doesn't support push notifications.",
+      "permisoDenegado": "Notification permission denied.",
+      "sinToken": "Couldn't get the notification token."
+    }
+  },
+  "agenda": {
+    "titulo": "Calendar",
+    "proximaEntrevista": "Next interview:",
+    "proximoEvento": "Next event:",
+    "vista": { "mes": "Month", "semana": "Week" },
+    "navegacion": {
+      "mesAnterior": "Previous month",
+      "mesSiguiente": "Next month",
+      "semanaAnterior": "Previous week",
+      "semanaSiguiente": "Next week"
+    },
+    "leyendaEntrevista": "Interview",
+    "eventosDelMes": "This month's events",
+    "agregarEvento": "Add event",
+    "campo": {
+      "titulo": "Title",
+      "fecha": "Date",
+      "horaOpcional": "Time (optional)",
+      "tipo": "Type",
+      "notasOpcional": "Notes (optional)"
+    },
+    "marcarComoHecho": "Mark as done",
+    "ver": "View →",
+    "vacioMes": "Nothing scheduled for {{mes}} yet.",
+    "objetivosDelMes": "This month's goals",
+    "placeholderMeta": "Write a goal…",
+    "unaAfirmacion": "An affirmation",
+    "placeholderAfirmacion": "Write this month's affirmation…",
+    "notas": "Notes",
+    "placeholderNota": "Write down what you need to remember about this day…",
+    "todoElDia": "All day",
+    "confirmBorrarEvento": "Delete \"{{titulo}}\"?",
+    "errorGuardarEvento": "Couldn't save the event.",
+    "hoy": "Today",
+    "unaEntrevistaCon": "interview with {{empresa}}",
+    "variasEntrevistas": "{{cantidad}} interviews",
+    "entrevistasEnEsteDia": "{{cantidad}} interview(s)",
+    "dias": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "meses": [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ],
+    "tipoEvento": {
+      "personal": "Personal",
+      "medica": "Medical",
+      "profesional": "Professional",
+      "social": "Social"
+    }
+  },
+  "postulaciones": {
+    "titulo": "Applications",
+    "subtitulo": "Track your job search",
+    "recalculando": "Recalculating…",
+    "recalcularCompatibilidad": "Recalculate match",
+    "nuevaPostulacion": "New application",
+    "campo": {
+      "empresa": "Company",
+      "puesto": "Role",
+      "portal": "Source",
+      "fechaPostulacion": "Application date",
+      "estado": "Status",
+      "fechaEntrevistaOpcional": "Interview (optional)",
+      "linkOpcional": "Link (optional)",
+      "deQueTrata": "What it's about (optional)",
+      "notasOpcional": "Notes (optional)"
+    },
+    "agregarPostulacion": "Add application",
+    "mailsSinIdentificar": "Unidentified emails ({{cantidad}})",
+    "revisionSub": "These don't match any known job site but look like part of an application process. Review and load them manually, or discard them.",
+    "remitenteDesconocido": "Unknown sender",
+    "sinAsunto": "(no subject)",
+    "cargarComoPostulacion": "Load as application",
+    "descartar": "Discard",
+    "seleccionarTodos": "Select all",
+    "seleccionados": "{{cantidad}} selected",
+    "agregarTodos": "Add all",
+    "agregando": "Adding…",
+    "descartarTodos": "Discard all",
+    "descartando": "Discarding…",
+    "confirmCargarSeleccionados": "Load {{cantidad}} email(s) as applications? They'll have placeholder company/role -- you fill those in by hand afterward.",
+    "confirmDescartarSeleccionados": "Discard {{cantidad}} email(s) from the review inbox? No application will be created.",
+    "postulacionesLbl": "applications",
+    "buscarPlaceholder": "Search by company or role…",
+    "verAvisoOriginal": "View original posting →",
+    "sinDescripcion": "No description loaded.",
+    "compatibilidadConLaOferta": "Match with this posting ({{pct}}%):",
+    "entrevistaLbl": "Interview:",
+    "notasLbl": "Notes:",
+    "vacio": "No applications loaded yet.",
+    "confirmDescartarRevision": "Discard this email from the review inbox? No application will be created.",
+    "confirmBorrar": "Delete the application to {{empresa}}?",
+    "errorGuardar": "Couldn't save the application.",
+    "errorRecalcular": "Couldn't recalculate the match.",
+    "recalculoListo": "Done, {{cantidad}} application(s) recalculated.",
+    "pctCompatibilidad": "{{pct}}% match",
+    "pctProbLlamada": "{{pct}}% call chance",
+    "probLlamadaTitle": "Heuristic estimate based on your data, not a guarantee",
+    "deNTotal": "{{n}} of {{total}} applications · {{pct}}%",
+    "notasMailOriginal": "Original email ({{remitente}} · \"{{asunto}}\"):\n{{cuerpo}}",
+    "estado": {
+      "enviada": "Sent",
+      "vista": "Viewed",
+      "entrevista": "Interview",
+      "rechazada": "Rejected",
+      "oferta": "Offer"
+    }
+  },
+  "clientes": {
+    "titulo": "Clients",
+    "nombrePlaceholder": "Name",
+    "telefonoPlaceholder": "Phone (optional)",
+    "agregarCliente": "Add client",
+    "columnaNombre": "Name",
+    "columnaTelefono": "Phone",
+    "vacio": "No clients yet.",
+    "confirmBorrar": "Delete {{nombre}}?",
+    "errorGuardar": "Couldn't save the client."
+  },
+  "configuracion": {
+    "titulo": "Settings",
+    "botonAbrir": "Settings",
+    "perfil": {
+      "titulo": "Profile",
+      "nombre": "Name",
+      "email": "Email",
+      "passwordActual": "Current password",
+      "foto": "Profile picture",
+      "subirFoto": "Upload picture",
+      "cambiarEmail": "Change email",
+      "guardarNombre": "Save name",
+      "exito": "Profile updated.",
+      "errorEmail": "Couldn't change the email.",
+      "errorNombre": "Couldn't save the name.",
+      "errorFoto": "Couldn't upload the picture."
+    },
+    "contrasena": {
+      "titulo": "Password",
+      "actual": "Current password",
+      "nueva": "New password",
+      "cambiar": "Change password",
+      "exito": "Password updated.",
+      "error": "Couldn't change the password."
+    },
+    "notificaciones": {
+      "titulo": "Notifications",
+      "descripcion": "Push reminders before every interview or timed event.",
+      "activar": "Turn on notifications",
+      "desactivar": "Turn off notifications"
+    },
+    "perfilCv": {
+      "titulo": "My CV / Profile",
+      "descripcion": "Used to calculate how compatible each job offer is with your profile.",
+      "placeholder": "Paste a summary of your experience, skills, and what you're looking for...",
+      "guardar": "Save CV",
+      "exito": "CV updated.",
+      "error": "Couldn't save the CV."
+    },
+    "computrabajo": {
+      "titulo": "Computrabajo",
+      "descripcion": "Connect your account to automatically fetch the real link and description of your applications (Computrabajo's confirmation email doesn't include it today).",
+      "email": "Computrabajo email",
+      "password": "Computrabajo password",
+      "conectar": "Connect",
+      "desconectar": "Disconnect",
+      "conectado": "Account connected.",
+      "conectadoComo": "Connected as {{email}}.",
+      "desconectado": "Account disconnected.",
+      "error": "Couldn't connect the account.",
+      "sesionDescripcion": "Do you log into Computrabajo with Google/Outlook and don't have your own password? Log in on your regular browser, export the cookies with an extension (e.g. Cookie-Editor), and paste them here — we never need your Google password.",
+      "sesionActiva": "Session saved.",
+      "cookies": "Exported cookies (JSON)",
+      "cookiesPlaceholder": "Paste the JSON exported by the extension here...",
+      "guardarSesion": "Save session",
+      "sesionGuardada": "Session saved.",
+      "errorSesion": "Couldn't save the session."
+    },
+    "idioma": {
+      "titulo": "Language",
+      "es": "Español",
+      "en": "English"
+    },
+    "apariencia": {
+      "titulo": "Appearance",
+      "claro": "Light",
+      "oscuro": "Dark"
+    }
+  }
+}

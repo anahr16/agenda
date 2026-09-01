@@ -183,15 +183,95 @@
 }
 
 .revision-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 1rem;
+}
+
+.revision-checkbox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-purple);
+  cursor: pointer;
+}
+
+.revision-row-main {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   text-align: left;
-  padding: 0.8rem 1rem;
+  padding: 0.8rem 1rem 0.8rem 0;
   display: flex;
   align-items: center;
   gap: 0.8rem;
   border: none;
   background: none;
   cursor: pointer;
+}
+
+.revision-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}
+
+.revision-check-todos {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.revision-check-todos input {
+  accent-color: var(--accent-purple);
+  cursor: pointer;
+}
+
+.revision-bulk-cantidad {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+.btn-bulk-agregar,
+.btn-bulk-descartar {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: 'Manrope', sans-serif;
+}
+
+.btn-bulk-agregar {
+  color: var(--accent-purple-deep);
+}
+
+.btn-bulk-agregar:hover:not(:disabled) {
+  border-color: var(--accent-purple);
+}
+
+.btn-bulk-descartar {
+  color: var(--coral-deep);
+}
+
+.btn-bulk-descartar:hover:not(:disabled) {
+  border-color: var(--coral-deep);
+}
+
+.btn-bulk-agregar:disabled,
+.btn-bulk-descartar:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .revision-body {
@@ -603,4 +683,73 @@
   padding: 2.5rem 1rem;
   color: var(--ink-faint);
   font-size: 0.88rem;
+}
+
+/* Superficies "glass" (blanco translúcido) y la bandeja de revisión (cream
+   clara) asumían un fondo de página claro debajo -- acá se les da su
+   variante oscura. Los pills de estado/compatibilidad quedan igual: son
+   chips pastel con texto oscuro, se leen bien sobre cualquier fondo. */
+:host-context([data-theme='dark']) .revision-card {
+  border-color: oklch(45% 0.09 78);
+  background: oklch(24% 0.03 78);
+}
+
+:host-context([data-theme='dark']) .revision-head {
+  color: oklch(82% 0.13 85);
+}
+
+:host-context([data-theme='dark']) .search-row {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 28px -22px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:host-context([data-theme='dark']) .filtro-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+:host-context([data-theme='dark']) .post-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Responsive: por debajo de 640px el formulario de 3 columnas y la
+   tarjeta de stats (con divisor lateral) aprietan demasiado -- se apilan.
+   post-row no se fuerza a apilar: con flex-wrap alcanza (logo+nombre se
+   quedan juntos en la primera linea, los pills de estado/compatibilidad
+   pasan solos a la siguiente si no entran, sin tocar el HTML). */
+@media (max-width: 640px) {
+  .postulacion-form {
+    grid-template-columns: 1fr;
+    padding: 1.3rem 1.4rem;
+  }
+
+  .campo-ancho {
+    grid-column: span 1;
+  }
+
+  .form-acciones {
+    grid-column: span 1;
+  }
+
+  .stats-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.2rem;
+  }
+
+  .stats-hero {
+    padding-right: 0;
+    padding-bottom: 1.2rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .post-row {
+    flex-wrap: wrap;
+  }
+
+  .page-head {
+    align-items: flex-start;
+  }
 }

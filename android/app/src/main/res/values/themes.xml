@@ -1,0 +1,14 @@
+<resources>
+    <!-- Solo un tema "vacio" de arranque: el theming real (colores de marca,
+         Material3) se maneja en Kotlin con Compose (ver Tema.kt), no en XML. -->
+    <style name="Theme.AgendaInteligente" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Tema de arranque para la splash screen nativa (androidx.core.splashscreen).
+         Se usa solo en la activity mientras se infla el primer frame; despues pasa
+         a Theme.AgendaInteligente via postSplashScreenTheme. -->
+    <style name="Theme.AgendaInteligente.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.AgendaInteligente</item>
+    </style>
+</resources>

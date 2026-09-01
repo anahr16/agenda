@@ -1,88 +1,93 @@
 <div class="agenda-hero">
   <div>
-    <h1 class="page-title display">Agenda</h1>
+    <h1 class="page-title display">{{ 'agenda.titulo' | translate }}</h1>
   </div>
   <div class="hero-right">
     @if (proximaEntrevistaChip()) {
       <div class="hero-next-chip">
         <span class="pip"></span>
-        Próxima entrevista: <strong>{{ proximaEntrevistaChip()!.empresa }}</strong> · {{ proximaEntrevistaChip()!.cuando }}
+        {{ 'agenda.proximaEntrevista' | translate }} <strong>{{ proximaEntrevistaChip()!.empresa }}</strong> · {{ proximaEntrevistaChip()!.cuando }}
       </div>
     }
     @if (proximoEventoChip()) {
       <div class="hero-next-chip hero-next-chip-evento">
         <span class="pip"></span>
-        Próximo evento: <strong>{{ proximoEventoChip()!.titulo }}</strong> · {{ proximoEventoChip()!.cuando }}
+        {{ 'agenda.proximoEvento' | translate }} <strong>{{ proximoEventoChip()!.titulo }}</strong> · {{ proximoEventoChip()!.cuando }}
       </div>
     }
     <div class="vista-toggle">
-      <button type="button" [class.active]="vista() === 'mes'" (click)="cambiarVista('mes')">Mes</button>
-      <button type="button" [class.active]="vista() === 'semana'" (click)="cambiarVista('semana')">Semana</button>
+      <button type="button" [class.active]="vista() === 'mes'" (click)="cambiarVista('mes')">{{ 'agenda.vista.mes' | translate }}</button>
+      <button type="button" [class.active]="vista() === 'semana'" (click)="cambiarVista('semana')">{{ 'agenda.vista.semana' | translate }}</button>
     </div>
   </div>
 </div>
 
-<div class="agenda-layout">
+<div class="planner-grid">
+  <!-- 1. Calendario -->
   @if (vista() === 'mes') {
-    <div class="card calendar-card">
-      <svg class="calendar-sparkle s1" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
-      <svg class="calendar-sparkle s2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    <div class="card calendar-card planner-calendar planner-box">
+      <img class="box-sticker tl" [src]="'/img/stickers/' + stickerFlor(0) + '.png'" alt="" />
+      <img class="box-sticker br" [src]="'/img/stickers/' + stickerFlor(2) + '.png'" alt="" />
+      <svg class="box-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
       <div class="calendar-head">
         <div class="calendar-month-group">
-          <button type="button" class="month-nav" (click)="cambiarMes(-1)" aria-label="Mes anterior">
+          <button type="button" class="month-nav" (click)="cambiarMes(-1)" [attr.aria-label]="'agenda.navegacion.mesAnterior' | translate">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <h2 class="calendar-month display">{{ tituloMes() }}</h2>
-          <button type="button" class="month-nav" (click)="cambiarMes(1)" aria-label="Mes siguiente">
+          <button type="button" class="month-nav" (click)="cambiarMes(1)" [attr.aria-label]="'agenda.navegacion.mesSiguiente' | translate">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
         </div>
-        <div class="calendar-legends">
-          <span class="calendar-legend"><span class="dot dot-entrevista"></span>Entrevista</span>
-          @for (t of tiposEvento; track t) {
-            <span class="calendar-legend"><span class="dot" [style.background]="colorTipo(t)"></span>{{ etiquetaTipo(t) }}</span>
-          }
-        </div>
+      </div>
+      <div class="calendar-legends">
+        <span class="calendar-legend"><span class="dot dot-entrevista"></span>{{ 'agenda.leyendaEntrevista' | translate }}</span>
+        @for (t of tiposEvento; track t) {
+          <span class="calendar-legend"><span class="dot" [style.background]="colorTipo(t)"></span>{{ etiquetaTipo(t) }}</span>
+        }
       </div>
       <div class="weekday-row">
-        <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+        @for (d of dias(); track d) {
+          <span>{{ d.charAt(0) }}</span>
+        }
       </div>
       <div class="calendar-grid">
         @for (c of celdas(); track c.fechaKey) {
           <button type="button" class="day-cell {{ c.clase }}" (click)="seleccionarCelda(c.fechaKey)">
             <span class="num">{{ c.numero }}</span>
-            @if (c.entrevistas.length > 0) {
-              <span class="day-chip">{{ c.chipTexto }}</span>
-            }
-            @if (c.eventos.length > 0) {
-              <span
-                class="day-chip-evento"
-                [style.color]="colorTipo(c.eventos[0].tipo)"
-                [title]="c.eventos.length + ' evento(s)'"
-              >{{ c.chipTextoEvento }}</span>
-            }
+            <span class="day-dots">
+              @if (c.entrevistas.length > 0) {
+                <span class="day-dot" style="background:var(--gold-deep)" [title]="'agenda.entrevistasEnEsteDia' | translate: { cantidad: c.entrevistas.length }"></span>
+              }
+              @for (t of c.tiposEventoPresentes; track t) {
+                <span class="day-dot" [style.background]="colorTipo(t)" [title]="etiquetaTipo(t)"></span>
+              }
+            </span>
           </button>
         }
       </div>
     </div>
   } @else {
-    <div class="card calendar-card semana-card">
+    <div class="card calendar-card semana-card planner-calendar planner-box">
+      <img class="box-sticker tl" [src]="'/img/stickers/' + stickerFlor(0) + '.png'" alt="" />
+      <img class="box-sticker br" [src]="'/img/stickers/' + stickerFlor(2) + '.png'" alt="" />
+      <svg class="box-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
       <div class="calendar-head">
         <div class="calendar-month-group">
-          <button type="button" class="month-nav" (click)="cambiarSemana(-1)" aria-label="Semana anterior">
+          <button type="button" class="month-nav" (click)="cambiarSemana(-1)" [attr.aria-label]="'agenda.navegacion.semanaAnterior' | translate">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <h2 class="calendar-month display">{{ tituloSemana() }}</h2>
-          <button type="button" class="month-nav" (click)="cambiarSemana(1)" aria-label="Semana siguiente">
+          <button type="button" class="month-nav" (click)="cambiarSemana(1)" [attr.aria-label]="'agenda.navegacion.semanaSiguiente' | translate">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
         </div>
-        <div class="calendar-legends">
-          <span class="calendar-legend"><span class="dot dot-entrevista"></span>Entrevista</span>
-          @for (t of tiposEvento; track t) {
-            <span class="calendar-legend"><span class="dot" [style.background]="colorTipo(t)"></span>{{ etiquetaTipo(t) }}</span>
-          }
-        </div>
+      </div>
+      <div class="calendar-legends">
+        <span class="calendar-legend"><span class="dot dot-entrevista"></span>{{ 'agenda.leyendaEntrevista' | translate }}</span>
+        @for (t of tiposEvento; track t) {
+          <span class="calendar-legend"><span class="dot" [style.background]="colorTipo(t)"></span>{{ etiquetaTipo(t) }}</span>
+        }
       </div>
 
       <div class="semana-grid">
@@ -90,7 +95,7 @@
           <div class="semana-dia-header"></div>
           <div class="semana-col-body" [style.height.rem]="alturaTotalRem">
             @for (h of horasSemana; track h) {
-              <span class="semana-hora-label" [style.top.rem]="(h - horasSemana[0]) * alturaHoraRem">{{ h }}:00</span>
+              <span class="semana-hora-label" [style.top.rem]="(h - horasSemana[0]) * alturaHoraRem">{{ h }}</span>
             }
           </div>
         </div>
@@ -111,14 +116,11 @@
                 @for (e of c.eventosSinHora; track e.id) {
                   <button
                     type="button"
-                    class="semana-evento-chip todo-el-dia"
-                    [style.border-left-color]="colorTipo(e.tipo)"
-                    [style.color]="colorTipo(e.tipo)"
-                    [title]="etiquetaTipo(e.tipo)"
+                    class="semana-dot-todo-el-dia"
+                    [style.background]="colorTipo(e.tipo)"
+                    [title]="e.titulo"
                     (click)="editarEvento(e)"
-                  >
-                    {{ e.titulo }}
-                  </button>
+                  ></button>
                 }
               </div>
             }
@@ -129,26 +131,22 @@
               @for (entrevista of c.entrevistas; track entrevista.id) {
                 <button
                   type="button"
-                  class="semana-evento-chip entrevista"
+                  class="semana-barra"
+                  style="background: var(--gold-deep)"
                   [style.top.rem]="posicionVertical(horaDecimalEntrevista(entrevista))"
                   routerLink="/postulaciones"
-                  [title]="entrevista.empresa + ' — ' + entrevista.puesto"
-                >
-                  {{ hora(entrevista.fecha_entrevista!) }} · {{ entrevista.empresa }}
-                </button>
+                  [title]="hora(entrevista.fecha_entrevista!) + ' · ' + entrevista.empresa + ' — ' + entrevista.puesto"
+                ></button>
               }
               @for (e of c.eventosConHora; track e.id) {
                 <button
                   type="button"
-                  class="semana-evento-chip evento"
+                  class="semana-barra"
                   [style.top.rem]="posicionVertical(horaDecimalEvento(e))"
-                  [style.border-left-color]="colorTipo(e.tipo)"
-                  [style.color]="colorTipo(e.tipo)"
-                  [title]="etiquetaTipo(e.tipo)"
+                  [style.background]="colorTipo(e.tipo)"
+                  [title]="e.hora + ' · ' + e.titulo"
                   (click)="editarEvento(e)"
-                >
-                  {{ e.hora }} · {{ e.titulo }}
-                </button>
+                ></button>
               }
             </div>
           </div>
@@ -157,96 +155,136 @@
     </div>
   }
 
-  <div class="card notes-panel">
-    <div class="notes-tape"></div>
-    <h2 class="notes-title display">Notas</h2>
+  <!-- 2. Eventos del mes -->
+  <div class="card eventos-mes-panel planner-box">
+    <img class="box-sticker tl" [src]="'/img/stickers/' + stickerFlor(1) + '.png'" alt="" />
+    <img class="box-sticker br" [src]="'/img/stickers/' + stickerFlor(3) + '.png'" alt="" />
+    <svg class="box-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    <div class="eventos-mes-head">
+      <h2 class="panel-title display">{{ 'agenda.eventosDelMes' | translate }}</h2>
+      <button type="button" class="btn-add-evento" (click)="abrirNuevoEvento()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        {{ 'agenda.agregarEvento' | translate }}
+      </button>
+    </div>
+
+    @if (mostrarFormularioEvento()) {
+      <form class="evento-form" (ngSubmit)="guardarEvento()">
+        <div class="campo campo-ancho">
+          <label for="eventoTitulo">{{ 'agenda.campo.titulo' | translate }}</label>
+          <input id="eventoTitulo" type="text" name="eventoTitulo" [(ngModel)]="eventoTitulo" required />
+        </div>
+        <div class="campo">
+          <label for="eventoFecha">{{ 'agenda.campo.fecha' | translate }}</label>
+          <input id="eventoFecha" type="date" name="eventoFecha" [(ngModel)]="eventoFecha" required />
+        </div>
+        <div class="campo">
+          <label for="eventoHora">{{ 'agenda.campo.horaOpcional' | translate }}</label>
+          <input id="eventoHora" type="time" name="eventoHora" [(ngModel)]="eventoHora" />
+        </div>
+        <div class="campo">
+          <label for="eventoTipo">{{ 'agenda.campo.tipo' | translate }}</label>
+          <select id="eventoTipo" name="eventoTipo" [(ngModel)]="eventoTipo">
+            @for (t of tiposEvento; track t) {
+              <option [value]="t">{{ etiquetaTipo(t) }}</option>
+            }
+          </select>
+        </div>
+        <div class="campo campo-ancho">
+          <label for="eventoNotas">{{ 'agenda.campo.notasOpcional' | translate }}</label>
+          <input id="eventoNotas" type="text" name="eventoNotas" [(ngModel)]="eventoNotas" />
+        </div>
+        @if (errorEvento()) {
+          <p class="mensaje">{{ errorEvento() }}</p>
+        }
+        <div class="form-acciones">
+          <button type="submit" class="btn-add">{{ (editandoEventoId() ? 'comun.guardarCambios' : 'agenda.agregarEvento') | translate }}</button>
+          <button type="button" class="btn-cancelar" (click)="cancelarFormularioEvento()">{{ 'comun.cancelar' | translate }}</button>
+        </div>
+      </form>
+    }
+
+    <div class="eventos-mes-lista">
+      @for (item of itemsDelMes(); track item.key) {
+        <div class="item-mes" [class.marcado]="estaMarcado(item.key)" [style.border-left-color]="item.color">
+          @if (!item.esEntrevista) {
+            <button type="button" class="item-check" (click)="toggleMarcado(item.key)" [title]="'agenda.marcarComoHecho' | translate">
+              <img [src]="'/img/stickers/' + stickerFlor($index) + '.png'" alt="" />
+            </button>
+          } @else {
+            <span class="item-dot" [style.background]="item.color"></span>
+          }
+          <span class="item-fecha">{{ item.fechaLabel }} · {{ item.horaLabel }}</span>
+          <span class="item-info">
+            <strong>{{ item.titulo }}</strong>
+            @if (item.detalle) {
+              — {{ item.detalle }}
+            }
+          </span>
+          @if (item.esEntrevista) {
+            <a routerLink="/postulaciones" class="item-link">{{ 'agenda.ver' | translate }}</a>
+          } @else {
+            <div class="item-acciones">
+              <button type="button" class="btn-editar" (click)="editarEvento(item.evento!)">{{ 'comun.editar' | translate }}</button>
+              <button type="button" class="btn-borrar" (click)="borrarEvento(item.evento!)">{{ 'comun.borrar' | translate }}</button>
+            </div>
+          }
+        </div>
+      } @empty {
+        <p class="eventos-vacio">{{ 'agenda.vacioMes' | translate: { mes: tituloMes() } }}</p>
+      }
+    </div>
+  </div>
+
+  <!-- 3. Objetivos del mes -->
+  <div class="card objetivos-panel planner-box">
+    <img class="box-sticker tl" [src]="'/img/stickers/' + stickerFlor(2) + '.png'" alt="" />
+    <img class="box-sticker br" [src]="'/img/stickers/' + stickerFlor(4) + '.png'" alt="" />
+    <svg class="box-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    <h2 class="panel-title display">{{ 'agenda.objetivosDelMes' | translate }}</h2>
+    <div class="objetivos-lista">
+      @for (o of objetivos(); track $index) {
+        <div class="objetivo-linea">
+          <span class="objetivo-num">{{ $index + 1 }}</span>
+          <input
+            type="text"
+            [ngModel]="o"
+            (ngModelChange)="onObjetivoChange($index, $event)"
+            [placeholder]="'agenda.placeholderMeta' | translate"
+          />
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- 4. Una afirmación -->
+  <div class="card afirmacion-panel planner-box">
+    <img class="box-sticker tl" [src]="'/img/stickers/' + stickerFlor(3) + '.png'" alt="" />
+    <img class="box-sticker br" [src]="'/img/stickers/' + stickerFlor(5) + '.png'" alt="" />
+    <svg class="box-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    <h2 class="panel-title display">{{ 'agenda.unaAfirmacion' | translate }}</h2>
+    <img class="afirmacion-sticker" [src]="'/img/lettering/' + stickerAfirmacion + '.png'" alt="" />
+    <textarea
+      class="afirmacion-texto"
+      [placeholder]="'agenda.placeholderAfirmacion' | translate"
+      [ngModel]="afirmacion()"
+      (ngModelChange)="onAfirmacionChange($event)"
+    ></textarea>
+  </div>
+
+  <!-- 5. Notas -->
+  <div class="card notes-panel planner-box">
+    <img class="box-sticker tl" [src]="'/img/stickers/' + stickerFlor(4) + '.png'" alt="" />
+    <img class="box-sticker br" [src]="'/img/stickers/' + stickerFlor(6) + '.png'" alt="" />
+    <svg class="box-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    <h2 class="notes-title display">{{ 'agenda.notas' | translate }}</h2>
     <p class="notes-sub">{{ seleccionLabel() }}</p>
     <div class="notes-lines">
       <textarea
-        placeholder="Escribí lo que necesites recordar de este día…"
+        [placeholder]="'agenda.placeholderNota' | translate"
         [ngModel]="nota()"
         (ngModelChange)="onNotaChange($event)"
       ></textarea>
     </div>
   </div>
 </div>
-
-<div class="card eventos-card">
-  <div class="eventos-head">
-    <h2 class="eventos-title display">Eventos de este día</h2>
-    <button type="button" class="btn-add-evento" (click)="abrirNuevoEvento()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      Agregar evento
-    </button>
-  </div>
-
-  @if (mostrarFormularioEvento()) {
-    <form class="evento-form" (ngSubmit)="guardarEvento()">
-      <div class="campo campo-ancho">
-        <label for="eventoTitulo">Título</label>
-        <input id="eventoTitulo" type="text" name="eventoTitulo" [(ngModel)]="eventoTitulo" required />
-      </div>
-      <div class="campo">
-        <label for="eventoFecha">Fecha</label>
-        <input id="eventoFecha" type="date" name="eventoFecha" [(ngModel)]="eventoFecha" required />
-      </div>
-      <div class="campo">
-        <label for="eventoHora">Hora (opcional)</label>
-        <input id="eventoHora" type="time" name="eventoHora" [(ngModel)]="eventoHora" />
-      </div>
-      <div class="campo">
-        <label for="eventoTipo">Tipo</label>
-        <select id="eventoTipo" name="eventoTipo" [(ngModel)]="eventoTipo">
-          @for (t of tiposEvento; track t) {
-            <option [value]="t">{{ etiquetaTipo(t) }}</option>
-          }
-        </select>
-      </div>
-      <div class="campo campo-ancho">
-        <label for="eventoNotas">Notas (opcional)</label>
-        <input id="eventoNotas" type="text" name="eventoNotas" [(ngModel)]="eventoNotas" />
-      </div>
-      @if (errorEvento()) {
-        <p class="mensaje">{{ errorEvento() }}</p>
-      }
-      <div class="form-acciones">
-        <button type="submit" class="btn-add">{{ editandoEventoId() ? 'Guardar cambios' : 'Agregar evento' }}</button>
-        <button type="button" class="btn-cancelar" (click)="cancelarFormularioEvento()">Cancelar</button>
-      </div>
-    </form>
-  }
-
-  @for (evento of celdaEnVista()?.eventos ?? []; track evento.id) {
-    <div class="evento-row">
-      <span class="evento-tipo-dot" [style.background]="colorTipo(evento.tipo)" [title]="etiquetaTipo(evento.tipo)"></span>
-      <span class="evento-hora">{{ evento.hora || 'Todo el día' }}</span>
-      <span class="evento-info">
-        <strong>{{ evento.titulo }}</strong>
-        @if (evento.notas) {
-          — {{ evento.notas }}
-        }
-      </span>
-      <div class="evento-acciones">
-        <button type="button" class="btn-editar" (click)="editarEvento(evento)">Editar</button>
-        <button type="button" class="btn-borrar" (click)="borrarEvento(evento)">Borrar</button>
-      </div>
-    </div>
-  } @empty {
-    <p class="eventos-vacio">No hay eventos cargados para este día.</p>
-  }
-</div>
-
-@if (celdaEnVista() && celdaEnVista()!.entrevistas.length > 0) {
-  <div class="card entrevistas-dia">
-    <h2 class="entrevistas-dia-title display">Entrevistas de este día</h2>
-    @for (entrevista of celdaEnVista()!.entrevistas; track entrevista.id) {
-      <div class="entrevista-row">
-        <span class="entrevista-hora">{{ hora(entrevista.fecha_entrevista!) }}</span>
-        <span class="entrevista-info">
-          <strong>{{ entrevista.empresa }}</strong> — {{ entrevista.puesto }}
-        </span>
-        <a routerLink="/postulaciones" class="entrevista-link">Ver en Postulaciones →</a>
-      </div>
-    }
-  </div>
-}

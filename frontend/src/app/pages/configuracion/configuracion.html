@@ -1,0 +1,224 @@
+<div class="page-head">
+  <div>
+    <h1 class="page-title display">{{ 'configuracion.titulo' | translate }}</h1>
+  </div>
+</div>
+
+<div class="card config-panel">
+  <nav class="config-nav">
+    <button type="button" [class.active]="seccionActiva() === 'perfil'" (click)="seccionActiva.set('perfil')">
+      {{ 'configuracion.perfil.titulo' | translate }}
+    </button>
+    <button type="button" [class.active]="seccionActiva() === 'contrasena'" (click)="seccionActiva.set('contrasena')">
+      {{ 'configuracion.contrasena.titulo' | translate }}
+    </button>
+    <button type="button" [class.active]="seccionActiva() === 'notificaciones'" (click)="seccionActiva.set('notificaciones')">
+      {{ 'configuracion.notificaciones.titulo' | translate }}
+    </button>
+    <button type="button" [class.active]="seccionActiva() === 'cv'" (click)="seccionActiva.set('cv')">
+      {{ 'configuracion.perfilCv.titulo' | translate }}
+    </button>
+    <button type="button" [class.active]="seccionActiva() === 'computrabajo'" (click)="seccionActiva.set('computrabajo')">
+      {{ 'configuracion.computrabajo.titulo' | translate }}
+    </button>
+    <button type="button" [class.active]="seccionActiva() === 'idioma'" (click)="seccionActiva.set('idioma')">
+      {{ 'configuracion.idioma.titulo' | translate }}
+    </button>
+    <button type="button" [class.active]="seccionActiva() === 'apariencia'" (click)="seccionActiva.set('apariencia')">
+      {{ 'configuracion.apariencia.titulo' | translate }}
+    </button>
+  </nav>
+
+  <div class="config-content">
+    @switch (seccionActiva()) {
+      @case ('perfil') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.perfil.titulo' | translate }}</h2>
+
+          <div class="config-foto">
+            <div class="config-foto-preview">
+              @if (fotoPerfil()) {
+                <img [src]="fotoPerfil()" alt="" />
+              } @else {
+                <span>{{ (nombre || email).charAt(0).toUpperCase() }}</span>
+              }
+            </div>
+            <label class="btn-secundario config-foto-btn">
+              {{ 'configuracion.perfil.subirFoto' | translate }}
+              <input type="file" accept="image/*" hidden (change)="subirFoto($event)" [disabled]="subiendoFoto()" />
+            </label>
+          </div>
+          @if (mensajeFoto()) {
+            <p class="mensaje">{{ mensajeFoto() }}</p>
+          }
+
+          <form class="config-form" (ngSubmit)="guardarNombre()">
+            <div class="fila-campo">
+              <label for="nombre">{{ 'configuracion.perfil.nombre' | translate }}</label>
+              <input id="nombre" type="text" name="nombre" [(ngModel)]="nombre" />
+            </div>
+            <button type="submit" class="btn-add" [disabled]="guardandoNombre()">{{ 'configuracion.perfil.guardarNombre' | translate }}</button>
+            @if (mensajeNombre()) {
+              <p class="mensaje">{{ mensajeNombre() }}</p>
+            }
+          </form>
+
+          <form class="config-form" (ngSubmit)="cambiarEmail()">
+            <div class="fila-campo">
+              <label for="email">{{ 'configuracion.perfil.email' | translate }}</label>
+              <input id="email" type="email" name="email" [(ngModel)]="email" required />
+            </div>
+            <div class="fila-campo">
+              <label for="passwordActualEmail">{{ 'configuracion.perfil.passwordActual' | translate }}</label>
+              <input id="passwordActualEmail" type="password" name="passwordActualEmail" [(ngModel)]="passwordActualEmail" required autocomplete="current-password" />
+            </div>
+            <button type="submit" class="btn-add" [disabled]="guardandoEmail()">{{ 'configuracion.perfil.cambiarEmail' | translate }}</button>
+            @if (mensajeEmail()) {
+              <p class="mensaje">{{ mensajeEmail() }}</p>
+            }
+          </form>
+        </section>
+      }
+
+      @case ('contrasena') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.contrasena.titulo' | translate }}</h2>
+          <form class="config-form" (ngSubmit)="cambiarPassword()">
+            <div class="fila-campo">
+              <label for="passwordActual">{{ 'configuracion.contrasena.actual' | translate }}</label>
+              <input id="passwordActual" type="password" name="passwordActual" [(ngModel)]="passwordActual" required autocomplete="current-password" />
+            </div>
+            <div class="fila-campo">
+              <label for="passwordNueva">{{ 'configuracion.contrasena.nueva' | translate }}</label>
+              <input id="passwordNueva" type="password" name="passwordNueva" [(ngModel)]="passwordNueva" required autocomplete="new-password" />
+            </div>
+            <button type="submit" class="btn-add" [disabled]="guardandoPassword()">{{ 'configuracion.contrasena.cambiar' | translate }}</button>
+            @if (mensajePassword()) {
+              <p class="mensaje">{{ mensajePassword() }}</p>
+            }
+          </form>
+        </section>
+      }
+
+      @case ('notificaciones') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.notificaciones.titulo' | translate }}</h2>
+          <div class="config-row">
+            <p class="config-row-desc">{{ 'configuracion.notificaciones.descripcion' | translate }}</p>
+            @if (pushDisponible) {
+              <button type="button" class="btn-add" [disabled]="cambiandoNotificaciones()" (click)="toggleNotificaciones()">
+                {{ (perfil()?.notificaciones_activas ? 'configuracion.notificaciones.desactivar' : 'configuracion.notificaciones.activar') | translate }}
+              </button>
+            }
+          </div>
+          @if (mensajeNotificaciones()) {
+            <p class="mensaje">{{ mensajeNotificaciones() }}</p>
+          }
+        </section>
+      }
+
+      @case ('cv') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.perfilCv.titulo' | translate }}</h2>
+          <p class="config-desc">{{ 'configuracion.perfilCv.descripcion' | translate }}</p>
+          <form class="config-form" (ngSubmit)="guardarPerfilCv()">
+            <div class="fila-campo">
+              <textarea
+                name="perfilCv"
+                rows="8"
+                [(ngModel)]="perfilCv"
+                [placeholder]="'configuracion.perfilCv.placeholder' | translate"
+              ></textarea>
+            </div>
+            <button type="submit" class="btn-add" [disabled]="guardandoPerfilCv()">{{ 'configuracion.perfilCv.guardar' | translate }}</button>
+            @if (mensajePerfilCv()) {
+              <p class="mensaje">{{ mensajePerfilCv() }}</p>
+            }
+          </form>
+        </section>
+      }
+
+      @case ('computrabajo') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.computrabajo.titulo' | translate }}</h2>
+          <p class="config-desc">{{ 'configuracion.computrabajo.descripcion' | translate }}</p>
+
+          @if (perfil()?.computrabajo_conectado) {
+            <p class="config-desc">{{ 'configuracion.computrabajo.conectadoComo' | translate: { email: perfil()?.computrabajo_email } }}</p>
+            <button type="button" class="btn-secundario" [disabled]="conectandoComputrabajo()" (click)="desconectarComputrabajo()">
+              {{ 'configuracion.computrabajo.desconectar' | translate }}
+            </button>
+          } @else {
+            <form class="config-form" (ngSubmit)="conectarComputrabajo()">
+              <div class="fila-campo">
+                <label for="computrabajoEmail">{{ 'configuracion.computrabajo.email' | translate }}</label>
+                <input id="computrabajoEmail" type="email" name="computrabajoEmail" [(ngModel)]="computrabajoEmail" required />
+              </div>
+              <div class="fila-campo">
+                <label for="computrabajoPassword">{{ 'configuracion.computrabajo.password' | translate }}</label>
+                <input id="computrabajoPassword" type="password" name="computrabajoPassword" [(ngModel)]="computrabajoPassword" required autocomplete="off" />
+              </div>
+              <button type="submit" class="btn-add" [disabled]="conectandoComputrabajo()">{{ 'configuracion.computrabajo.conectar' | translate }}</button>
+            </form>
+          }
+          @if (mensajeComputrabajo()) {
+            <p class="mensaje">{{ mensajeComputrabajo() }}</p>
+          }
+
+          <div class="config-divider"></div>
+
+          <p class="config-desc">{{ 'configuracion.computrabajo.sesionDescripcion' | translate }}</p>
+          @if (perfil()?.computrabajo_sesion_conectada) {
+            <p class="config-desc">{{ 'configuracion.computrabajo.sesionActiva' | translate }}</p>
+          }
+          <form class="config-form" (ngSubmit)="guardarCookiesComputrabajo()">
+            <div class="fila-campo">
+              <label for="computrabajoCookies">{{ 'configuracion.computrabajo.cookies' | translate }}</label>
+              <textarea
+                id="computrabajoCookies"
+                name="computrabajoCookies"
+                rows="4"
+                [(ngModel)]="computrabajoCookies"
+                [placeholder]="'configuracion.computrabajo.cookiesPlaceholder' | translate"
+              ></textarea>
+            </div>
+            <button type="submit" class="btn-add" [disabled]="guardandoCookiesComputrabajo() || !computrabajoCookies">
+              {{ 'configuracion.computrabajo.guardarSesion' | translate }}
+            </button>
+            @if (mensajeCookiesComputrabajo()) {
+              <p class="mensaje">{{ mensajeCookiesComputrabajo() }}</p>
+            }
+          </form>
+        </section>
+      }
+
+      @case ('idioma') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.idioma.titulo' | translate }}</h2>
+          <div class="config-opciones">
+            <button type="button" class="btn-secundario" [class.active]="perfil()?.idioma === 'es'" (click)="cambiarIdioma('es')">
+              {{ 'configuracion.idioma.es' | translate }}
+            </button>
+            <button type="button" class="btn-secundario" [class.active]="perfil()?.idioma === 'en'" (click)="cambiarIdioma('en')">
+              {{ 'configuracion.idioma.en' | translate }}
+            </button>
+          </div>
+        </section>
+      }
+
+      @case ('apariencia') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.apariencia.titulo' | translate }}</h2>
+          <div class="config-opciones">
+            <button type="button" class="btn-secundario" [class.active]="perfil()?.tema === 'claro'" (click)="cambiarTema('claro')">
+              {{ 'configuracion.apariencia.claro' | translate }}
+            </button>
+            <button type="button" class="btn-secundario" [class.active]="perfil()?.tema === 'oscuro'" (click)="cambiarTema('oscuro')">
+              {{ 'configuracion.apariencia.oscuro' | translate }}
+            </button>
+          </div>
+        </section>
+      }
+    }
+  </div>
+</div>

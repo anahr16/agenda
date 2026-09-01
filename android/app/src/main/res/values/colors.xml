@@ -1,0 +1,4 @@
+<resources>
+    <!-- Mismo bg claro de frontend/src/styles.css (ver PALETA_CLARA.bg en Tema.kt) -->
+    <color name="ic_launcher_background">#FBF3FB</color>
+</resources>

@@ -1,6 +1,8 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
+import { forkJoin, switchMap } from 'rxjs';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import {
   ESTADOS_POSTULACION,
   EstadoPostulacion,
@@ -9,14 +11,7 @@ import {
   PostulacionesStats,
 } from '../../core/postulaciones.service';
 import { MailRevision, MailsRevisionService } from '../../core/mails-revision.service';
-
-const ETIQUETAS_ESTADO: Record<EstadoPostulacion, string> = {
-  enviada: 'Enviada',
-  vista: 'Vista',
-  entrevista: 'Entrevista',
-  rechazada: 'Rechazada',
-  oferta: 'Oferta',
-};
+import { PerfilService } from '../../core/perfil.service';
 
 // Colores validados (dataviz: lightness/chroma/CVD/contraste ok en este orden de adyacencia).
 const ESTADO_COLOR: Record<EstadoPostulacion, string> = {
@@ -55,7 +50,7 @@ function datetimeLocalInputToUtcIso(local: string): string {
 @Component({
   selector: 'app-postulaciones',
   standalone: true,
-  imports: [FormsModule, NgTemplateOutlet],
+  imports: [FormsModule, NgTemplateOutlet, TranslatePipe],
   templateUrl: './postulaciones.html',
   styleUrl: './postulaciones.css',
 })
@@ -71,6 +66,8 @@ export class Postulaciones implements OnInit {
   error = signal<string | null>(null);
 
   expandidoRevisionId = signal<number | null>(null);
+  seleccionadosRevision = signal<Set<number>>(new Set());
+  procesandoBulk = signal(false);
   /** Si la postulación en el formulario viene de la bandeja de revisión, su id (para descartarla al guardar). */
   private revisionOrigenId: number | null = null;
 
@@ -101,21 +98,23 @@ export class Postulaciones implements OnInit {
   });
 
   barras = computed(() => {
+    this.translate.currentLang();
     const s = this.stats();
     if (!s) return [];
     const total = s.total;
     return ESTADOS_POSTULACION.map((estado) => {
       const n = s.porEstado.find((e) => e.estado === estado)?.n ?? 0;
       const pct = total ? Math.round((n / total) * 100) : 0;
-      return { estado, etiqueta: ETIQUETAS_ESTADO[estado], n, pct, color: ESTADO_COLOR[estado] };
+      return { estado, etiqueta: this.etiqueta(estado), n, pct, color: ESTADO_COLOR[estado] };
     });
   });
 
   filtros = computed(() => {
+    this.translate.currentLang();
     const activo = this.filtroEstado();
     return ['' as const, ...ESTADOS_POSTULACION].map((e) => ({
       valor: e,
-      etiqueta: e ? ETIQUETAS_ESTADO[e] : 'Todas',
+      etiqueta: e ? this.etiqueta(e) : this.translate.instant('comun.todas'),
       activo: activo === e,
       color: e ? ESTADO_COLOR[e] : '#8b4fd6',
     }));
@@ -123,7 +122,9 @@ export class Postulaciones implements OnInit {
 
   constructor(
     private postulacionesService: PostulacionesService,
-    private mailsRevisionService: MailsRevisionService
+    private mailsRevisionService: MailsRevisionService,
+    private perfilService: PerfilService,
+    private translate: TranslateService
   ) {}
 
   ngOnInit(): void {
@@ -135,7 +136,7 @@ export class Postulaciones implements OnInit {
   }
 
   etiqueta(estado: string): string {
-    return ETIQUETAS_ESTADO[estado as EstadoPostulacion] ?? estado;
+    return this.translate.instant('postulaciones.estado.' + estado) ?? estado;
   }
 
   inicial(empresa: string): string {
@@ -144,12 +145,17 @@ export class Postulaciones implements OnInit {
 
   formatoEntrevista(iso: string | null): string {
     if (!iso) return '-';
-    return parseUtc(iso).toLocaleString('es-419', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return parseUtc(iso).toLocaleString(this.perfilService.localeDeIdioma(), {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 
   formatoFecha(fecha: string): string {
     const d = new Date(`${fecha}T00:00:00`);
-    return d.toLocaleDateString('es-419', { day: '2-digit', month: 'short' });
+    return d.toLocaleDateString(this.perfilService.localeDeIdioma(), { day: '2-digit', month: 'short' });
   }
 
   cargar(): void {
@@ -164,6 +170,90 @@ export class Postulaciones implements OnInit {
 
   toggleExpandidoRevision(id: number): void {
     this.expandidoRevisionId.set(this.expandidoRevisionId() === id ? null : id);
+  }
+
+  todosSeleccionadosRevision = computed(() => {
+    const mails = this.mailsRevision();
+    return mails.length > 0 && mails.every((m) => this.seleccionadosRevision().has(m.id));
+  });
+
+  estaSeleccionado(id: number): boolean {
+    return this.seleccionadosRevision().has(id);
+  }
+
+  toggleSeleccionRevision(id: number): void {
+    const actuales = new Set(this.seleccionadosRevision());
+    if (actuales.has(id)) actuales.delete(id);
+    else actuales.add(id);
+    this.seleccionadosRevision.set(actuales);
+  }
+
+  toggleSeleccionarTodosRevision(): void {
+    this.seleccionadosRevision.set(
+      this.todosSeleccionadosRevision() ? new Set() : new Set(this.mailsRevision().map((m) => m.id))
+    );
+  }
+
+  /** Datos de postulacion en base a un mail que no matcheo ningun portal -- empresa/puesto quedan
+   *  como placeholder porque no hay forma de adivinarlos, se completan a mano despues. */
+  private datosDesdeMail(mail: MailRevision) {
+    const dominio = mail.remitente?.split('@')[1] || '';
+    const remitenteDesconocido = this.translate.instant('postulaciones.remitenteDesconocido');
+    const sinAsunto = this.translate.instant('postulaciones.sinAsunto');
+    return {
+      empresa: dominio ? `Sin identificar (${dominio})` : 'Sin identificar',
+      puesto: mail.asunto || 'Sin especificar',
+      portal: dominio || undefined,
+      fecha_postulacion: mail.fecha_recibido ? mail.fecha_recibido.slice(0, 10) : toFechaInput(new Date()),
+      estado: 'enviada' as EstadoPostulacion,
+      notas: this.translate.instant('postulaciones.notasMailOriginal', {
+        remitente: mail.remitente || remitenteDesconocido,
+        asunto: mail.asunto || sinAsunto,
+        cuerpo: mail.cuerpo,
+      }),
+    };
+  }
+
+  cargarSeleccionadosComoPostulaciones(): void {
+    const ids = this.seleccionadosRevision();
+    const mails = this.mailsRevision().filter((m) => ids.has(m.id));
+    if (mails.length === 0 || this.procesandoBulk()) return;
+    if (!confirm(this.translate.instant('postulaciones.confirmCargarSeleccionados', { cantidad: mails.length }))) {
+      return;
+    }
+    this.procesandoBulk.set(true);
+    const llamadas = mails.map((m) =>
+      this.postulacionesService.crear(this.datosDesdeMail(m)).pipe(switchMap(() => this.mailsRevisionService.descartar(m.id)))
+    );
+    forkJoin(llamadas).subscribe({
+      next: () => {
+        this.procesandoBulk.set(false);
+        this.seleccionadosRevision.set(new Set());
+        this.cargar();
+      },
+      error: () => {
+        this.procesandoBulk.set(false);
+        this.cargar();
+      },
+    });
+  }
+
+  descartarSeleccionados(): void {
+    const ids = [...this.seleccionadosRevision()];
+    if (ids.length === 0 || this.procesandoBulk()) return;
+    if (!confirm(this.translate.instant('postulaciones.confirmDescartarSeleccionados', { cantidad: ids.length }))) return;
+    this.procesandoBulk.set(true);
+    forkJoin(ids.map((id) => this.mailsRevisionService.descartar(id))).subscribe({
+      next: () => {
+        this.procesandoBulk.set(false);
+        this.seleccionadosRevision.set(new Set());
+        this.cargar();
+      },
+      error: () => {
+        this.procesandoBulk.set(false);
+        this.cargar();
+      },
+    });
   }
 
   abrirNueva(): void {
@@ -183,12 +273,18 @@ export class Postulaciones implements OnInit {
     this.fecha_postulacion = mail.fecha_recibido ? mail.fecha_recibido.slice(0, 10) : toFechaInput(new Date());
     this.estado = 'enviada';
     this.fecha_entrevista = '';
-    this.notas = `Mail original (${mail.remitente || 'remitente desconocido'} · "${mail.asunto || 'sin asunto'}"):\n${mail.cuerpo}`;
+    const remitenteDesconocido = this.translate.instant('postulaciones.remitenteDesconocido');
+    const sinAsunto = this.translate.instant('postulaciones.sinAsunto');
+    this.notas = this.translate.instant('postulaciones.notasMailOriginal', {
+      remitente: mail.remitente || remitenteDesconocido,
+      asunto: mail.asunto || sinAsunto,
+      cuerpo: mail.cuerpo,
+    });
     this.mostrarFormulario.set(true);
   }
 
   descartarRevision(mail: MailRevision): void {
-    if (!confirm('¿Descartar este mail de la bandeja de revisión? No se va a crear ninguna postulación.')) return;
+    if (!confirm(this.translate.instant('postulaciones.confirmDescartarRevision'))) return;
     this.mailsRevisionService.descartar(mail.id).subscribe(() => this.cargar());
   }
 
@@ -245,12 +341,12 @@ export class Postulaciones implements OnInit {
         if (revisionAId) this.mailsRevisionService.descartar(revisionAId).subscribe();
         this.cargar();
       },
-      error: (err) => this.error.set(err.error?.error || 'No se pudo guardar la postulacion.'),
+      error: (err) => this.error.set(err.error?.error || this.translate.instant('postulaciones.errorGuardar')),
     });
   }
 
   borrar(postulacion: Postulacion): void {
-    if (!confirm(`¿Borrar la postulacion a ${postulacion.empresa}?`)) return;
+    if (!confirm(this.translate.instant('postulaciones.confirmBorrar', { empresa: postulacion.empresa }))) return;
     this.postulacionesService.borrar(postulacion.id).subscribe(() => this.cargar());
   }
 
@@ -260,12 +356,12 @@ export class Postulaciones implements OnInit {
     this.postulacionesService.recalcularCompatibilidad().subscribe({
       next: (res) => {
         this.recalculando.set(false);
-        this.mensajeRecalculo.set(`Listo, se recalcularon ${res.actualizadas} postulacion(es).`);
+        this.mensajeRecalculo.set(this.translate.instant('postulaciones.recalculoListo', { cantidad: res.actualizadas }));
         this.cargar();
       },
       error: (err) => {
         this.recalculando.set(false);
-        this.mensajeRecalculo.set(err.error?.error || 'No se pudo recalcular la compatibilidad.');
+        this.mensajeRecalculo.set(err.error?.error || this.translate.instant('postulaciones.errorRecalcular'));
       },
     });
   }

@@ -1,12 +1,13 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslatePipe],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
@@ -17,7 +18,7 @@ export class Login {
   error = signal<string | null>(null);
   cargando = signal(false);
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(private auth: AuthService, private router: Router, private translate: TranslateService) {}
 
   alternarModo(): void {
     this.modo.set(this.modo() === 'login' ? 'registro' : 'login');
@@ -38,7 +39,7 @@ export class Login {
         if (this.modo() === 'registro') {
           this.modo.set('login');
           this.cargando.set(false);
-          this.error.set('Usuario creado. Ahora inicia sesion.');
+          this.error.set(this.translate.instant('login.usuarioCreado'));
           return;
         }
         this.cargando.set(false);
@@ -46,7 +47,7 @@ export class Login {
       },
       error: (err) => {
         this.cargando.set(false);
-        this.error.set(err.error?.error || 'Ocurrio un error, intenta de nuevo.');
+        this.error.set(err.error?.error || this.translate.instant('login.errorGenerico'));
       },
     });
   }

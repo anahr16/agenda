@@ -52,6 +52,11 @@ export class PostulacionesService {
 
   constructor(private http: HttpClient) {}
 
+  /** Se llama al cerrar sesion -- sin esto, si otra cuenta se loguea en la misma pestaña, veria por un instante los datos cacheados de la cuenta anterior. */
+  reset(): void {
+    this.postulaciones.set([]);
+  }
+
   listar() {
     return this.http.get<Postulacion[]>(this.base).pipe(tap((lista) => this.postulaciones.set(lista)));
   }

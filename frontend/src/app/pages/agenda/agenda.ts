@@ -1,24 +1,19 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Postulacion, PostulacionesService } from '../../core/postulaciones.service';
 import { DatosEvento, Evento, EventosService, TIPOS_EVENTO, TipoEvento } from '../../core/eventos.service';
+import { PerfilService } from '../../core/perfil.service';
+import { AuthService } from '../../core/auth.service';
+import { elegirSticker, FLORES } from '../../core/stickers';
 
-const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const MESES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
 const NOTA_PREFIJO = 'agenda-nota-';
+const OBJETIVOS_PREFIJO = 'agenda-objetivos-';
+const AFIRMACION_PREFIJO = 'agenda-afirmacion-';
+const CANTIDAD_OBJETIVOS = 5;
 const HORA_INICIO_SEMANA = 7;
 const HORA_FIN_SEMANA = 22;
-
-const ETIQUETA_TIPO_EVENTO: Record<TipoEvento, string> = {
-  personal: 'Personal',
-  medica: 'Médica',
-  profesional: 'Profesional',
-  social: 'Social',
-};
 
 // Los 4 tonos de marca de Anadesing (mismos que ya usan login/sidebar,
 // definidos como variables en styles.css) en vez de colores de estado
@@ -62,15 +57,26 @@ interface CeldaCalendario {
   eventos: Evento[];
   eventosConHora: Evento[];
   eventosSinHora: Evento[];
-  chipTexto: string;
-  chipTextoEvento: string;
+  tiposEventoPresentes: TipoEvento[];
   clase: string;
+}
+
+interface ItemMes {
+  key: string;
+  color: string;
+  fechaLabel: string;
+  horaLabel: string;
+  titulo: string;
+  detalle: string | null;
+  orden: string;
+  evento: Evento | null;
+  esEntrevista: boolean;
 }
 
 @Component({
   selector: 'app-agenda',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   templateUrl: './agenda.html',
   styleUrl: './agenda.css',
 })
@@ -79,11 +85,16 @@ export class Agenda implements OnInit {
   readonly alturaHoraRem = 2.2;
   readonly alturaTotalRem = this.horasSemana.length * this.alturaHoraRem;
   readonly tiposEvento = TIPOS_EVENTO;
+  readonly stickerAfirmacion = elegirSticker();
 
   vista = signal<'mes' | 'semana'>('mes');
   mesVisible = signal<Date>(inicioDeMes(new Date()));
   fechaSeleccionada = signal<string>(toFechaInput(new Date()));
   nota = signal<string>('');
+  objetivos = signal<string[]>(Array(CANTIDAD_OBJETIVOS).fill(''));
+  afirmacion = signal<string>('');
+  /** Ids "tipo-id" marcados como hechos en la lista de eventos del mes -- solo visual, no se persiste. */
+  marcados = signal<Set<string>>(new Set());
 
   mostrarFormularioEvento = signal(false);
   editandoEventoId = signal<number | null>(null);
@@ -94,18 +105,23 @@ export class Agenda implements OnInit {
   eventoNotas = '';
   eventoTipo: TipoEvento = 'personal';
 
-  tituloMes = computed(() => `${MESES[this.mesVisible().getMonth()]} ${this.mesVisible().getFullYear()}`);
+  tituloMes = computed(() => {
+    this.translate.currentLang();
+    return `${this.meses()[this.mesVisible().getMonth()]} ${this.mesVisible().getFullYear()}`;
+  });
 
   tituloSemana = computed(() => {
+    this.translate.currentLang();
     const inicio = inicioDeSemana(new Date(`${this.fechaSeleccionada()}T00:00:00`));
     const fin = new Date(inicio);
     fin.setDate(inicio.getDate() + 6);
     const mismoMes = inicio.getMonth() === fin.getMonth();
-    const mesInicio = MESES[inicio.getMonth()];
-    const mesFin = MESES[fin.getMonth()];
+    const meses = this.meses();
+    const mesInicio = meses[inicio.getMonth()];
+    const mesFin = meses[fin.getMonth()];
     return mismoMes
-      ? `${inicio.getDate()} – ${fin.getDate()} de ${mesInicio} ${fin.getFullYear()}`
-      : `${inicio.getDate()} de ${mesInicio} – ${fin.getDate()} de ${mesFin} ${fin.getFullYear()}`;
+      ? `${inicio.getDate()} – ${fin.getDate()} ${mesInicio} ${fin.getFullYear()}`
+      : `${inicio.getDate()} ${mesInicio} – ${fin.getDate()} ${mesFin} ${fin.getFullYear()}`;
   });
 
   private agrupar<T>(items: T[], fechaDe: (item: T) => string | null): Map<string, T[]> {
@@ -135,18 +151,10 @@ export class Agenda implements OnInit {
     const eventos = (eventosPorFecha.get(fechaKey) ?? []).sort((a, b) => (a.hora ?? '').localeCompare(b.hora ?? ''));
     const eventosConHora = eventos.filter((e) => e.hora);
     const eventosSinHora = eventos.filter((e) => !e.hora);
-    const chipTexto =
-      entrevistas.length === 0
-        ? ''
-        : entrevistas.length === 1
-        ? `${this.hora(entrevistas[0].fecha_entrevista!)} ${entrevistas[0].empresa}`
-        : `${this.hora(entrevistas[0].fecha_entrevista!)} ${entrevistas[0].empresa} +${entrevistas.length - 1}`;
-    const chipTextoEvento =
-      eventos.length === 0
-        ? ''
-        : eventos.length === 1
-        ? eventos[0].titulo
-        : `${eventos[0].titulo} +${eventos.length - 1}`;
+    // Solo tipos distintos, para el "mapa de colores": un punto por tipo
+    // presente ese dia, no uno por evento (varios eventos del mismo tipo no
+    // agregan puntos de mas).
+    const tiposEventoPresentes = [...new Set(eventos.map((e) => e.tipo))];
     const clase = [
       otroMes ? 'otro-mes' : '',
       esHoy ? 'hoy' : '',
@@ -166,8 +174,7 @@ export class Agenda implements OnInit {
       eventos,
       eventosConHora,
       eventosSinHora,
-      chipTexto,
-      chipTextoEvento,
+      tiposEventoPresentes,
       clase,
     };
   }
@@ -204,15 +211,18 @@ export class Agenda implements OnInit {
   });
 
   seleccionLabel = computed(() => {
+    this.translate.currentLang();
     const fecha = new Date(`${this.fechaSeleccionada()}T00:00:00`);
-    const etiquetaDia = `${DIAS_SEMANA[(fecha.getDay() + 6) % 7]} ${fecha.getDate()} de ${MESES[fecha.getMonth()]}`;
+    const etiquetaDia = `${this.dias()[(fecha.getDay() + 6) % 7]} ${fecha.getDate()} ${this.meses()[fecha.getMonth()]}`;
     const celda = this.celdaEnVista();
     if (!celda) return etiquetaDia;
     if (celda.entrevistas.length === 1) {
-      return `${etiquetaDia} · entrevista con ${celda.entrevistas[0].empresa}`;
+      const entrevistaCon = this.translate.instant('agenda.unaEntrevistaCon', { empresa: celda.entrevistas[0].empresa });
+      return `${etiquetaDia} · ${entrevistaCon}`;
     }
     if (celda.entrevistas.length > 1) {
-      return `${etiquetaDia} · ${celda.entrevistas.length} entrevistas`;
+      const varias = this.translate.instant('agenda.variasEntrevistas', { cantidad: celda.entrevistas.length });
+      return `${etiquetaDia} · ${varias}`;
     }
     return etiquetaDia;
   });
@@ -223,7 +233,52 @@ export class Agenda implements OnInit {
     return lista.find((c) => c.fechaKey === this.fechaSeleccionada());
   });
 
+  /** Todo lo que aparece con color en el calendario del mes visible, unificado en una sola lista cronologica ("Eventos del mes"). */
+  itemsDelMes = computed<ItemMes[]>(() => {
+    this.translate.currentLang();
+    const mes = this.mesVisible();
+    const anio = mes.getFullYear();
+    const numeroMes = mes.getMonth();
+    const dias = this.dias();
+    const todoElDia = this.translate.instant('agenda.todoElDia');
+    const etiquetaFecha = (fecha: Date) => `${dias[(fecha.getDay() + 6) % 7]} ${fecha.getDate()}`;
+
+    const entrevistas: ItemMes[] = this.postulacionesService.postulaciones()
+      .filter((p) => p.fecha_entrevista)
+      .map((p) => ({ p, fecha: parseUtc(p.fecha_entrevista!) }))
+      .filter(({ fecha }) => fecha.getFullYear() === anio && fecha.getMonth() === numeroMes)
+      .map(({ p, fecha }) => ({
+        key: `entrevista-${p.id}`,
+        color: 'var(--gold-deep)',
+        fechaLabel: etiquetaFecha(fecha),
+        horaLabel: this.hora(p.fecha_entrevista!),
+        titulo: `${p.empresa} — ${p.puesto}`,
+        detalle: null,
+        orden: p.fecha_entrevista!,
+        evento: null,
+        esEntrevista: true,
+      }));
+
+    const eventos: ItemMes[] = this.eventosService.eventos()
+      .map((e) => ({ e, fecha: new Date(`${e.fecha}T00:00:00`) }))
+      .filter(({ fecha }) => fecha.getFullYear() === anio && fecha.getMonth() === numeroMes)
+      .map(({ e, fecha }) => ({
+        key: `evento-${e.id}`,
+        color: this.colorTipo(e.tipo),
+        fechaLabel: etiquetaFecha(fecha),
+        horaLabel: e.hora || todoElDia,
+        titulo: e.titulo,
+        detalle: e.notas,
+        orden: `${e.fecha}T${e.hora ?? '00:00'}`,
+        evento: e,
+        esEntrevista: false,
+      }));
+
+    return [...entrevistas, ...eventos].sort((a, b) => a.orden.localeCompare(b.orden));
+  });
+
   proximaEntrevistaChip = computed(() => {
+    this.translate.currentLang();
     const ahora = new Date();
     const proxima = this.postulacionesService.postulaciones()
       .filter((p) => p.fecha_entrevista && parseUtc(p.fecha_entrevista) >= ahora)
@@ -231,14 +286,16 @@ export class Agenda implements OnInit {
     if (!proxima) return null;
     const fecha = parseUtc(proxima.fecha_entrevista!);
     const esHoy = toFechaInput(fecha) === toFechaInput(ahora);
-    const hora = fecha.toLocaleTimeString('es-419', { hour: '2-digit', minute: '2-digit' });
+    const hora = fecha.toLocaleTimeString(this.perfilService.localeDeIdioma(), { hour: '2-digit', minute: '2-digit' });
+    const hoy = this.translate.instant('agenda.hoy');
     return {
       empresa: proxima.empresa,
-      cuando: esHoy ? `Hoy · ${hora}` : `${DIAS_SEMANA[(fecha.getDay() + 6) % 7]} ${fecha.getDate()} · ${hora}`,
+      cuando: esHoy ? `${hoy} · ${hora}` : `${this.dias()[(fecha.getDay() + 6) % 7]} ${fecha.getDate()} · ${hora}`,
     };
   });
 
   proximoEventoChip = computed(() => {
+    this.translate.currentLang();
     const ahora = new Date();
     const ahoraKey = toFechaInput(ahora);
     const ahoraHora = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
@@ -248,7 +305,7 @@ export class Agenda implements OnInit {
     if (!proximo) return null;
     const fecha = new Date(`${proximo.fecha}T00:00:00`);
     const esHoy = proximo.fecha === ahoraKey;
-    const cuandoDia = esHoy ? 'Hoy' : `${DIAS_SEMANA[(fecha.getDay() + 6) % 7]} ${fecha.getDate()}`;
+    const cuandoDia = esHoy ? this.translate.instant('agenda.hoy') : `${this.dias()[(fecha.getDay() + 6) % 7]} ${fecha.getDate()}`;
     return {
       titulo: proximo.titulo,
       cuando: proximo.hora ? `${cuandoDia} · ${proximo.hora}` : cuandoDia,
@@ -257,13 +314,26 @@ export class Agenda implements OnInit {
 
   constructor(
     private postulacionesService: PostulacionesService,
-    private eventosService: EventosService
+    private eventosService: EventosService,
+    private perfilService: PerfilService,
+    private auth: AuthService,
+    private translate: TranslateService
   ) {}
+
+  dias(): string[] {
+    return this.translate.instant('agenda.dias');
+  }
+
+  private meses(): string[] {
+    return this.translate.instant('agenda.meses');
+  }
 
   ngOnInit(): void {
     this.postulacionesService.listar().subscribe({ error: () => {} });
     this.cargarEventos();
     this.cargarNota();
+    this.cargarObjetivos();
+    this.cargarAfirmacion();
   }
 
   cambiarVista(vista: 'mes' | 'semana'): void {
@@ -278,6 +348,8 @@ export class Agenda implements OnInit {
   cambiarMes(delta: number): void {
     const actual = this.mesVisible();
     this.mesVisible.set(new Date(actual.getFullYear(), actual.getMonth() + delta, 1));
+    this.cargarObjetivos();
+    this.cargarAfirmacion();
   }
 
   cambiarSemana(delta: number): void {
@@ -286,19 +358,99 @@ export class Agenda implements OnInit {
     this.fechaSeleccionada.set(toFechaInput(actual));
     this.mesVisible.set(inicioDeMes(actual));
     this.cargarNota();
+    this.cargarObjetivos();
+    this.cargarAfirmacion();
+  }
+
+  /** Antes las claves de Notas/Objetivos/Afirmacion no distinguian cuenta -- si dos cuentas comparten navegador, se pisaban los datos. Se namespacea por id de usuario (no email, para que no cambie si se edita el email despues). */
+  private claveUsuario(): string {
+    return String(this.auth.usuario()?.id ?? 'anon');
+  }
+
+  /** Migracion de una sola vez: si la clave nueva (con usuario) todavia no existe pero hay algo en la vieja (sin usuario), se copia y se borra la vieja -- para que las notas/objetivos/afirmaciones que ya existian no "desaparezcan" con este cambio. */
+  private migrarClaveVieja(claveNueva: string, claveVieja: string): void {
+    if (localStorage.getItem(claveNueva) !== null) return;
+    const valorViejo = localStorage.getItem(claveVieja);
+    if (valorViejo === null) return;
+    localStorage.setItem(claveNueva, valorViejo);
+    localStorage.removeItem(claveVieja);
+  }
+
+  private claveNota(): string {
+    const claveVieja = NOTA_PREFIJO + this.fechaSeleccionada();
+    const claveNueva = `${NOTA_PREFIJO}${this.claveUsuario()}-${this.fechaSeleccionada()}`;
+    this.migrarClaveVieja(claveNueva, claveVieja);
+    return claveNueva;
   }
 
   onNotaChange(valor: string): void {
     this.nota.set(valor);
-    localStorage.setItem(NOTA_PREFIJO + this.fechaSeleccionada(), valor);
+    localStorage.setItem(this.claveNota(), valor);
+  }
+
+  private claveMesObjetivos(): string {
+    const mes = this.mesVisible();
+    const sufijo = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`;
+    const claveVieja = OBJETIVOS_PREFIJO + sufijo;
+    const claveNueva = `${OBJETIVOS_PREFIJO}${this.claveUsuario()}-${sufijo}`;
+    this.migrarClaveVieja(claveNueva, claveVieja);
+    return claveNueva;
+  }
+
+  private cargarObjetivos(): void {
+    const guardado = localStorage.getItem(this.claveMesObjetivos());
+    this.objetivos.set(guardado ? JSON.parse(guardado) : Array(CANTIDAD_OBJETIVOS).fill(''));
+  }
+
+  onObjetivoChange(indice: number, valor: string): void {
+    const actuales = [...this.objetivos()];
+    actuales[indice] = valor;
+    this.objetivos.set(actuales);
+    localStorage.setItem(this.claveMesObjetivos(), JSON.stringify(actuales));
+  }
+
+  private claveMesAfirmacion(): string {
+    const mes = this.mesVisible();
+    const sufijo = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`;
+    const claveVieja = AFIRMACION_PREFIJO + sufijo;
+    const claveNueva = `${AFIRMACION_PREFIJO}${this.claveUsuario()}-${sufijo}`;
+    this.migrarClaveVieja(claveNueva, claveVieja);
+    return claveNueva;
+  }
+
+  private cargarAfirmacion(): void {
+    this.afirmacion.set(localStorage.getItem(this.claveMesAfirmacion()) ?? '');
+  }
+
+  onAfirmacionChange(valor: string): void {
+    this.afirmacion.set(valor);
+    localStorage.setItem(this.claveMesAfirmacion(), valor);
+  }
+
+  stickerFlor(indice: number): string {
+    return FLORES[indice % FLORES.length];
+  }
+
+  estaMarcado(key: string): boolean {
+    return this.marcados().has(key);
+  }
+
+  toggleMarcado(key: string): void {
+    const actuales = new Set(this.marcados());
+    if (actuales.has(key)) {
+      actuales.delete(key);
+    } else {
+      actuales.add(key);
+    }
+    this.marcados.set(actuales);
   }
 
   hora(iso: string): string {
-    return parseUtc(iso).toLocaleTimeString('es-419', { hour: '2-digit', minute: '2-digit' });
+    return parseUtc(iso).toLocaleTimeString(this.perfilService.localeDeIdioma(), { hour: '2-digit', minute: '2-digit' });
   }
 
   nombreDia(fecha: Date): string {
-    return DIAS_SEMANA[(fecha.getDay() + 6) % 7];
+    return this.dias()[(fecha.getDay() + 6) % 7];
   }
 
   /** Offset vertical en rem dentro de la columna del dia (vista semana), segun la hora decimal (14.5 = 14:30). */
@@ -361,12 +513,12 @@ export class Agenda implements OnInit {
         this.cancelarFormularioEvento();
         this.cargarEventos();
       },
-      error: (err) => this.errorEvento.set(err.error?.error || 'No se pudo guardar el evento.'),
+      error: (err) => this.errorEvento.set(err.error?.error || this.translate.instant('agenda.errorGuardarEvento')),
     });
   }
 
   etiquetaTipo(tipo: TipoEvento): string {
-    return ETIQUETA_TIPO_EVENTO[tipo] ?? tipo;
+    return this.translate.instant('agenda.tipoEvento.' + tipo) ?? tipo;
   }
 
   colorTipo(tipo: TipoEvento): string {
@@ -374,7 +526,7 @@ export class Agenda implements OnInit {
   }
 
   borrarEvento(evento: Evento): void {
-    if (!confirm(`¿Borrar "${evento.titulo}"?`)) return;
+    if (!confirm(this.translate.instant('agenda.confirmBorrarEvento', { titulo: evento.titulo }))) return;
     this.eventosService.borrar(evento.id).subscribe(() => this.cargarEventos());
   }
 
@@ -383,6 +535,6 @@ export class Agenda implements OnInit {
   }
 
   private cargarNota(): void {
-    this.nota.set(localStorage.getItem(NOTA_PREFIJO + this.fechaSeleccionada()) ?? '');
+    this.nota.set(localStorage.getItem(this.claveNota()) ?? '');
   }
 }

@@ -1,0 +1,272 @@
+{
+  "comun": {
+    "cancelar": "Cancelar",
+    "guardar": "Guardar",
+    "guardarCambios": "Guardar cambios",
+    "editar": "Editar",
+    "borrar": "Borrar",
+    "todas": "Todas"
+  },
+  "login": {
+    "bienvenidaDeNuevo": "Bienvenida de nuevo",
+    "creaTuCuenta": "Crea tu cuenta",
+    "subtitulo": "Tus entrevistas y tus postulaciones, en un solo lugar.",
+    "email": "Email",
+    "contrasena": "Contraseña",
+    "ingresar": "Ingresar",
+    "registrarme": "Registrarme",
+    "noTienesCuenta": "¿No tienes cuenta?",
+    "yaTienesCuenta": "¿Ya tienes cuenta?",
+    "crearUna": "Crear una",
+    "iniciarSesion": "Iniciar sesión",
+    "firmaCredit": "Un producto de Anadesing",
+    "annieHeroTitulo": "Hola, soy Annie",
+    "annieHeroTag": "Reviso tus mails, te aviso apenas pase algo importante y te acompaño a no perder ni una entrevista.",
+    "chipNuevaPostulacion": "Nueva postulación detectada",
+    "chipOferta": "Posible oferta en camino",
+    "usuarioCreado": "Usuario creado. Ahora inicia sesión.",
+    "errorGenerico": "Ocurrió un error, intenta de nuevo."
+  },
+  "shell": {
+    "nav": {
+      "agenda": "Agenda",
+      "postulaciones": "Postulaciones"
+    },
+    "proximasEntrevistas": "Próximas entrevistas",
+    "annie": {
+      "tuAsistente": "Tu asistente",
+      "escribiendo": "Escribiendo…",
+      "silenciar": "Silenciar a Annie",
+      "activarVoz": "Activar la voz de Annie",
+      "hablarle": "Hablarle a Annie",
+      "placeholder": "Escríbele algo a Annie…",
+      "enviar": "Enviar",
+      "errorRespuesta": "Annie no pudo responder. Intenta de nuevo.",
+      "limiteAlcanzado": "Llegaste al límite diario de mensajes con Annie. Probá de nuevo mañana.",
+      "saludo": "¡Bienvenida a tu Agenda Inteligente!",
+      "pedirNombre": "Antes de arrancar, ¿cómo te gusta que te llame?",
+      "preguntaAyuda": "¿En qué puedo ayudarte hoy, {{nombre}}?",
+      "nombreGuardado": "¡Un gusto, {{nombre}}! ¿En qué puedo ayudarte hoy?",
+      "mientrasNoEstuviste": "Mientras no estuviste, pasó esto: {{resumen}}."
+    },
+    "actividad": {
+      "oferta": "¡Oferta de {{empresa}} ({{puesto}})!",
+      "entrevista": "Entrevista agendada con {{empresa}} ({{puesto}})",
+      "rechazada": "{{empresa}} ({{puesto}}) respondió: no avanza",
+      "vista": "{{empresa}} ({{puesto}}) vio tu postulación",
+      "nueva": "Nueva postulación detectada: {{empresa}} ({{puesto}})"
+    },
+    "mensaje": {
+      "oferta": "¡Tienes una oferta de {{empresa}} ({{puesto}})!",
+      "entrevista": "Te agendaron una entrevista con {{empresa}} ({{puesto}}).",
+      "rechazada": "{{empresa}} ({{puesto}}) respondió que no vas a avanzar esta vez.",
+      "vista": "{{empresa}} ({{puesto}}) vio tu postulación.",
+      "default": "{{empresa}} ({{puesto}}) actualizó tu postulación a \"{{estado}}\".",
+      "nueva": "Nueva postulación detectada: {{empresa}} ({{puesto}})."
+    },
+    "recordatorio": {
+      "evento": "Recordatorio: {{titulo}} a las {{hora}}",
+      "entrevista": "Recordatorio: entrevista con {{empresa}} ({{puesto}}) a las {{hora}}."
+    },
+    "salir": "Salir",
+    "configuracion": "Configuración"
+  },
+  "notificaciones": {
+    "activadas": "Notificaciones activadas.",
+    "desactivadas": "Notificaciones desactivadas.",
+    "noSePudoActivar": "No se pudo activar.",
+    "error": {
+      "firebaseNoConfigurado": "Firebase no esta configurado todavia.",
+      "noSoportado": "Este navegador no soporta notificaciones push.",
+      "permisoDenegado": "Permiso de notificaciones denegado.",
+      "sinToken": "No se pudo obtener el token de notificaciones."
+    }
+  },
+  "agenda": {
+    "titulo": "Agenda",
+    "proximaEntrevista": "Próxima entrevista:",
+    "proximoEvento": "Próximo evento:",
+    "vista": { "mes": "Mes", "semana": "Semana" },
+    "navegacion": {
+      "mesAnterior": "Mes anterior",
+      "mesSiguiente": "Mes siguiente",
+      "semanaAnterior": "Semana anterior",
+      "semanaSiguiente": "Semana siguiente"
+    },
+    "leyendaEntrevista": "Entrevista",
+    "eventosDelMes": "Eventos del mes",
+    "agregarEvento": "Agregar evento",
+    "campo": {
+      "titulo": "Título",
+      "fecha": "Fecha",
+      "horaOpcional": "Hora (opcional)",
+      "tipo": "Tipo",
+      "notasOpcional": "Notas (opcional)"
+    },
+    "marcarComoHecho": "Marcar como hecho",
+    "ver": "Ver →",
+    "vacioMes": "No hay nada cargado para {{mes}} todavía.",
+    "objetivosDelMes": "Objetivos del mes",
+    "placeholderMeta": "Escribe una meta…",
+    "unaAfirmacion": "Una afirmación",
+    "placeholderAfirmacion": "Escribe tu afirmación de este mes…",
+    "notas": "Notas",
+    "placeholderNota": "Escribí lo que necesites recordar de este día…",
+    "todoElDia": "Todo el día",
+    "confirmBorrarEvento": "¿Borrar \"{{titulo}}\"?",
+    "errorGuardarEvento": "No se pudo guardar el evento.",
+    "hoy": "Hoy",
+    "unaEntrevistaCon": "entrevista con {{empresa}}",
+    "variasEntrevistas": "{{cantidad}} entrevistas",
+    "entrevistasEnEsteDia": "{{cantidad}} entrevista(s)",
+    "dias": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+    "meses": [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ],
+    "tipoEvento": {
+      "personal": "Personal",
+      "medica": "Médica",
+      "profesional": "Profesional",
+      "social": "Social"
+    }
+  },
+  "postulaciones": {
+    "titulo": "Postulaciones",
+    "subtitulo": "Seguimiento de tu búsqueda laboral",
+    "recalculando": "Recalculando…",
+    "recalcularCompatibilidad": "Recalcular compatibilidad",
+    "nuevaPostulacion": "Nueva postulación",
+    "campo": {
+      "empresa": "Empresa",
+      "puesto": "Puesto",
+      "portal": "Portal",
+      "fechaPostulacion": "Fecha de postulación",
+      "estado": "Estado",
+      "fechaEntrevistaOpcional": "Entrevista (opcional)",
+      "linkOpcional": "Link (opcional)",
+      "deQueTrata": "De qué trata (opcional)",
+      "notasOpcional": "Notas (opcional)"
+    },
+    "agregarPostulacion": "Agregar postulación",
+    "mailsSinIdentificar": "Mails sin identificar ({{cantidad}})",
+    "revisionSub": "No matchean ningún portal conocido pero parecen de un proceso de postulación. Revisalos y cargalos a mano, o descartalos.",
+    "remitenteDesconocido": "Remitente desconocido",
+    "sinAsunto": "(sin asunto)",
+    "cargarComoPostulacion": "Cargar como postulación",
+    "descartar": "Descartar",
+    "seleccionarTodos": "Seleccionar todos",
+    "seleccionados": "{{cantidad}} seleccionado(s)",
+    "agregarTodos": "Agregar todos",
+    "agregando": "Agregando…",
+    "descartarTodos": "Descartar todos",
+    "descartando": "Descartando…",
+    "confirmCargarSeleccionados": "¿Cargar {{cantidad}} mail(s) como postulaciones? Van a quedar con empresa/puesto de relleno -- después los completas a mano.",
+    "confirmDescartarSeleccionados": "¿Descartar {{cantidad}} mail(s) de la bandeja de revisión? No se va a crear ninguna postulación.",
+    "postulacionesLbl": "postulaciones",
+    "buscarPlaceholder": "Buscar por empresa o puesto…",
+    "verAvisoOriginal": "Ver aviso original →",
+    "sinDescripcion": "Sin descripción cargada.",
+    "compatibilidadConLaOferta": "Compatibilidad con la oferta ({{pct}}%):",
+    "entrevistaLbl": "Entrevista:",
+    "notasLbl": "Notas:",
+    "vacio": "Todavía no hay postulaciones cargadas.",
+    "confirmDescartarRevision": "¿Descartar este mail de la bandeja de revisión? No se va a crear ninguna postulación.",
+    "confirmBorrar": "¿Borrar la postulación a {{empresa}}?",
+    "errorGuardar": "No se pudo guardar la postulación.",
+    "errorRecalcular": "No se pudo recalcular la compatibilidad.",
+    "recalculoListo": "Listo, se recalcularon {{cantidad}} postulación(es).",
+    "pctCompatibilidad": "{{pct}}% compatibilidad",
+    "pctProbLlamada": "{{pct}}% prob. llamada",
+    "probLlamadaTitle": "Estimación heurística en base a tus datos, no una garantía",
+    "deNTotal": "{{n}} de {{total}} postulaciones · {{pct}}%",
+    "notasMailOriginal": "Mail original ({{remitente}} · \"{{asunto}}\"):\n{{cuerpo}}",
+    "estado": {
+      "enviada": "Enviada",
+      "vista": "Vista",
+      "entrevista": "Entrevista",
+      "rechazada": "Rechazada",
+      "oferta": "Oferta"
+    }
+  },
+  "clientes": {
+    "titulo": "Clientes",
+    "nombrePlaceholder": "Nombre",
+    "telefonoPlaceholder": "Telefono (opcional)",
+    "agregarCliente": "Agregar cliente",
+    "columnaNombre": "Nombre",
+    "columnaTelefono": "Telefono",
+    "vacio": "Todavia no hay clientes.",
+    "confirmBorrar": "¿Borrar a {{nombre}}?",
+    "errorGuardar": "No se pudo guardar el cliente."
+  },
+  "configuracion": {
+    "titulo": "Configuración",
+    "botonAbrir": "Configuración",
+    "perfil": {
+      "titulo": "Perfil",
+      "nombre": "Nombre",
+      "email": "Email",
+      "passwordActual": "Contraseña actual",
+      "foto": "Foto de perfil",
+      "subirFoto": "Subir foto",
+      "cambiarEmail": "Cambiar email",
+      "guardarNombre": "Guardar nombre",
+      "exito": "Perfil actualizado.",
+      "errorEmail": "No se pudo cambiar el email.",
+      "errorNombre": "No se pudo guardar el nombre.",
+      "errorFoto": "No se pudo subir la foto."
+    },
+    "contrasena": {
+      "titulo": "Contraseña",
+      "actual": "Contraseña actual",
+      "nueva": "Contraseña nueva",
+      "cambiar": "Cambiar contraseña",
+      "exito": "Contraseña actualizada.",
+      "error": "No se pudo cambiar la contraseña."
+    },
+    "notificaciones": {
+      "titulo": "Notificaciones",
+      "descripcion": "Recordatorios push antes de cada entrevista o evento con hora.",
+      "activar": "Activar notificaciones",
+      "desactivar": "Desactivar notificaciones"
+    },
+    "perfilCv": {
+      "titulo": "Mi CV / Perfil",
+      "descripcion": "Se usa para calcular qué tan compatible es cada oferta con tu perfil.",
+      "placeholder": "Pega acá un resumen de tu experiencia, habilidades y lo que buscas...",
+      "guardar": "Guardar CV",
+      "exito": "CV actualizado.",
+      "error": "No se pudo guardar el CV."
+    },
+    "computrabajo": {
+      "titulo": "Computrabajo",
+      "descripcion": "Conecta tu cuenta para traer automáticamente el link y la descripción real de tus postulaciones (hoy el mail de confirmación de Computrabajo no la trae).",
+      "email": "Email de Computrabajo",
+      "password": "Contraseña de Computrabajo",
+      "conectar": "Conectar",
+      "desconectar": "Desconectar",
+      "conectado": "Cuenta conectada.",
+      "conectadoComo": "Conectada como {{email}}.",
+      "desconectado": "Cuenta desconectada.",
+      "error": "No se pudo conectar la cuenta.",
+      "sesionDescripcion": "¿Entras a Computrabajo con Google/Outlook y no tenes una contraseña propia? Inicia sesión en tu navegador normal, exporta las cookies con una extensión (ej. Cookie-Editor) y pegalas acá — nunca necesitamos tu contraseña de Google.",
+      "sesionActiva": "Sesión guardada.",
+      "cookies": "Cookies exportadas (JSON)",
+      "cookiesPlaceholder": "Pega acá el JSON exportado por la extensión...",
+      "guardarSesion": "Guardar sesión",
+      "sesionGuardada": "Sesión guardada.",
+      "errorSesion": "No se pudo guardar la sesión."
+    },
+    "idioma": {
+      "titulo": "Idioma",
+      "es": "Español",
+      "en": "English"
+    },
+    "apariencia": {
+      "titulo": "Apariencia",
+      "claro": "Claro",
+      "oscuro": "Oscuro"
+    }
+  }
+}

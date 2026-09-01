@@ -2,6 +2,7 @@ const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 const { convert } = require('html-to-text');
 const cron = require('node-cron');
+const { getMessaging } = require('firebase-admin/messaging');
 const db = require('./db');
 const PARSERS = require('./emailParsers');
 const { pareceLaboral } = PARSERS;
@@ -9,6 +10,8 @@ const { obtenerDescripcion } = require('./jobPageScraper');
 const { enviarTelegram } = require('./telegram');
 const { calcularCompatibilidad } = require('./compatibilidadOferta');
 const { leerPerfil } = require('./perfil');
+const { getFirebaseApp, avisoFirebaseNoConfigurado } = require('./firebaseApp');
+const { obtenerIdDueña } = require('./ownerUsuario');
 
 const DIAS_ATRAS = Number(process.env.EMAIL_SYNC_DIAS_ATRAS || 3);
 const ESTADOS_TERMINALES = ['rechazada', 'oferta'];
@@ -52,23 +55,23 @@ function marcarProcesado(messageId) {
   db.prepare('INSERT OR IGNORE INTO postulaciones_emails_procesados (message_id) VALUES (?)').run(messageId);
 }
 
-function buscarPostulacion(empresa, puesto) {
+function buscarPostulacion(empresa, puesto, usuarioId) {
   return db
-    .prepare('SELECT * FROM postulaciones WHERE lower(empresa) = lower(?) AND lower(puesto) = lower(?)')
-    .get(empresa, puesto);
+    .prepare('SELECT * FROM postulaciones WHERE lower(empresa) = lower(?) AND lower(puesto) = lower(?) AND usuario_id = ?')
+    .get(empresa, puesto, usuarioId);
 }
 
-function buscarPostulacionesPorPuesto(puesto) {
-  return db.prepare('SELECT * FROM postulaciones WHERE lower(puesto) = lower(?)').all(puesto);
+function buscarPostulacionesPorPuesto(puesto, usuarioId) {
+  return db.prepare('SELECT * FROM postulaciones WHERE lower(puesto) = lower(?) AND usuario_id = ?').all(puesto, usuarioId);
 }
 
-function crearPostulacion({ empresa, puesto, portal, link, fecha }) {
+function crearPostulacion({ empresa, puesto, portal, link, fecha }, usuarioId) {
   const resultado = db
     .prepare(
-      `INSERT INTO postulaciones (empresa, puesto, portal, link, fecha_postulacion, estado, notas)
-       VALUES (?, ?, ?, ?, ?, 'enviada', 'Detectada automaticamente por email')`
+      `INSERT INTO postulaciones (empresa, puesto, portal, link, fecha_postulacion, estado, notas, usuario_id)
+       VALUES (?, ?, ?, ?, ?, 'enviada', 'Detectada automaticamente por email', ?)`
     )
-    .run(empresa, puesto, portal, link || null, fecha);
+    .run(empresa, puesto, portal, link || null, fecha, usuarioId);
   return resultado.lastInsertRowid;
 }
 
@@ -118,17 +121,57 @@ async function avisarPorTelegram(mensaje) {
   }
 }
 
-async function procesarNuevaPostulacion(datos, parserUsado, fechaMail) {
-  if (buscarPostulacion(datos.empresa, datos.puesto)) return;
-  const id = crearPostulacion({
-    empresa: datos.empresa,
-    puesto: datos.puesto,
-    portal: parserUsado.portal,
-    link: datos.link,
-    fecha: fechaMail.toISOString().slice(0, 10),
-  });
+// Push real (mismo mecanismo que recordatoriosEntrevistas.js/recordatorios.js) para
+// "nueva postulacion detectada"/"cambio de estado" -- antes esto solo mandaba
+// Telegram, pedido explicito de la usuaria sumar tambien push de Windows.
+// Manda solo al token de la cuenta dueña del mailbox (usuarioId) -- esto es
+// actividad de SU bandeja de entrada, no de cualquier cuenta publica que se
+// registre despues.
+async function avisarPorPush(titulo, cuerpo, usuarioId) {
+  const app = getFirebaseApp();
+  if (!app) {
+    avisoFirebaseNoConfigurado('email-sync');
+    return;
+  }
+  const usuario = db.prepare('SELECT fcm_token FROM usuarios WHERE id = ? AND fcm_token IS NOT NULL').get(usuarioId);
+  if (!usuario) return;
+  try {
+    await getMessaging(app).send({ token: usuario.fcm_token, notification: { title: titulo, body: cuerpo } });
+  } catch (err) {
+    console.error('[email-sync] No se pudo enviar push:', err.message);
+  }
+}
+
+// Deja registro en actividad_postulaciones -- de ahi lo levantan tanto el
+// recordatorio por voz de Annie mientras la app esta abierta
+// (routes/recordatoriosVoz.js) como el resumen de "mientras no estuviste"
+// que arma al saludar (routes/annie.js).
+function registrarActividad(postulacionId, tipo, mensaje, usuarioId) {
+  db.prepare('INSERT INTO actividad_postulaciones (postulacion_id, tipo, mensaje, usuario_id) VALUES (?, ?, ?, ?)').run(
+    postulacionId,
+    tipo,
+    mensaje,
+    usuarioId
+  );
+}
+
+async function procesarNuevaPostulacion(datos, parserUsado, fechaMail, usuarioId) {
+  if (buscarPostulacion(datos.empresa, datos.puesto, usuarioId)) return;
+  const id = crearPostulacion(
+    {
+      empresa: datos.empresa,
+      puesto: datos.puesto,
+      portal: parserUsado.portal,
+      link: datos.link,
+      fecha: fechaMail.toISOString().slice(0, 10),
+    },
+    usuarioId
+  );
   console.log(`[email-sync] Postulacion detectada: ${datos.empresa} - ${datos.puesto} (${parserUsado.portal})`);
+  const mensajeNueva = `Nueva postulación detectada: ${datos.empresa} (${datos.puesto})`;
+  registrarActividad(id, 'nueva', mensajeNueva, usuarioId);
   await avisarPorTelegram(`✅ Postulación detectada: ${datos.empresa} — ${datos.puesto} (${parserUsado.portal}).`);
+  await avisarPorPush('Nueva postulación', `${datos.empresa} — ${datos.puesto}`, usuarioId);
 
   if (!datos.link) return;
   let descripcion;
@@ -141,17 +184,17 @@ async function procesarNuevaPostulacion(datos, parserUsado, fechaMail) {
 
   if (!descripcion) return;
   try {
-    const compat = await calcularCompatibilidad(leerPerfil(), descripcion);
+    const compat = await calcularCompatibilidad(leerPerfil(usuarioId), descripcion);
     if (compat) actualizarCompatibilidad(id, compat.compatibilidad, compat.razon);
   } catch (err) {
     console.warn(`[email-sync] No se pudo calcular compatibilidad con la oferta:`, err.message);
   }
 }
 
-async function procesarCambioEstado(datos) {
+async function procesarCambioEstado(datos, usuarioId) {
   const candidatas = datos.empresa
-    ? [buscarPostulacion(datos.empresa, datos.puesto)].filter(Boolean)
-    : buscarPostulacionesPorPuesto(datos.puesto);
+    ? [buscarPostulacion(datos.empresa, datos.puesto, usuarioId)].filter(Boolean)
+    : buscarPostulacionesPorPuesto(datos.puesto, usuarioId);
 
   if (candidatas.length !== 1) {
     console.warn(
@@ -167,13 +210,16 @@ async function procesarCambioEstado(datos) {
 
   actualizarEstadoPostulacion(postulacion.id, datos.estado);
   console.log(`[email-sync] Estado actualizado: ${postulacion.empresa} - ${postulacion.puesto} -> ${datos.estado}`);
-  await avisarPorTelegram(mensajeCambioEstado({ empresa: postulacion.empresa, puesto: postulacion.puesto, estado: datos.estado }));
+  const mensaje = mensajeCambioEstado({ empresa: postulacion.empresa, puesto: postulacion.puesto, estado: datos.estado });
+  registrarActividad(postulacion.id, datos.estado, mensaje, usuarioId);
+  await avisarPorTelegram(mensaje);
+  await avisarPorPush('Actualización de postulación', mensaje, usuarioId);
 }
 
-function guardarParaRevision(remitente, asunto, texto, fecha) {
+function guardarParaRevision(remitente, asunto, texto, fecha, usuarioId) {
   db.prepare(
-    'INSERT INTO postulaciones_emails_revision (remitente, asunto, cuerpo, fecha_recibido) VALUES (?, ?, ?, ?)'
-  ).run(remitente, asunto || null, texto, (fecha || new Date()).toISOString());
+    'INSERT INTO postulaciones_emails_revision (remitente, asunto, cuerpo, fecha_recibido, usuario_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(remitente, asunto || null, texto, (fecha || new Date()).toISOString(), usuarioId);
 }
 
 // Red de contencion para mails que no matchean ningun portal conocido (ni
@@ -183,9 +229,9 @@ function guardarParaRevision(remitente, asunto, texto, fecha) {
 // revision en la pantalla de Postulaciones) y ademas se avisa por Telegram,
 // en vez de perderlo en silencio -- es el caso de empresas que escriben
 // directo desde su propio ATS (ej. TicMoAI).
-async function avisarMailNoReconocido(remitente, asunto, texto, fecha) {
+async function avisarMailNoReconocido(remitente, asunto, texto, fecha, usuarioId) {
   if (!pareceLaboral(asunto, texto)) return;
-  guardarParaRevision(remitente, asunto, texto, fecha);
+  guardarParaRevision(remitente, asunto, texto, fecha, usuarioId);
   const extracto = texto.replace(/\s+/g, ' ').trim().slice(0, 220);
   const mensaje = `📧 Mail que parece de una postulación pero no reconozco el formato:\n${remitente}\n"${asunto || '(sin asunto)'}"\n${extracto}${
     extracto.length === 220 ? '…' : ''
@@ -199,6 +245,7 @@ async function avisarMailNoReconocido(remitente, asunto, texto, fecha) {
 }
 
 let avisoDesactivadoMostrado = false;
+let avisoSinDueñaMostrado = false;
 
 async function sincronizarEmails() {
   const cfg = config();
@@ -208,6 +255,17 @@ async function sincronizarEmails() {
         '[email-sync] IMAP_USER/IMAP_APP_PASSWORD no configurados: sincronizacion de postulaciones por email desactivada.'
       );
       avisoDesactivadoMostrado = true;
+    }
+    return;
+  }
+
+  // Este mailbox es de UNA cuenta (la dueña), no de cualquiera que se
+  // registre en la app -- ver ownerUsuario.js.
+  const usuarioId = obtenerIdDueña();
+  if (!usuarioId) {
+    if (!avisoSinDueñaMostrado) {
+      console.warn('[email-sync] Ninguna cuenta marcada como es_owner: sincronizacion de postulaciones desactivada.');
+      avisoSinDueñaMostrado = true;
     }
     return;
   }
@@ -235,7 +293,7 @@ async function sincronizarEmails() {
           // parece de una postulacion, en vez de descartarlo sin mirarlo.
           const parsed = await simpleParser(msg.source);
           const texto = textoDelMail(parsed);
-          await avisarMailNoReconocido(remitente, parsed.subject || '', texto, msg.envelope.date);
+          await avisarMailNoReconocido(remitente, parsed.subject || '', texto, msg.envelope.date, usuarioId);
           marcarProcesado(messageId);
           continue;
         }
@@ -255,15 +313,15 @@ async function sincronizarEmails() {
 
         if (!datos) {
           console.warn(`[email-sync] Mail de ${remitente} no matcheo ningun formato conocido (asunto: "${parsed.subject}")`);
-          await avisarMailNoReconocido(remitente, parsed.subject || '', texto, msg.envelope.date);
+          await avisarMailNoReconocido(remitente, parsed.subject || '', texto, msg.envelope.date, usuarioId);
           marcarProcesado(messageId);
           continue;
         }
 
         if (parserUsado.tipo === 'nueva_postulacion') {
-          await procesarNuevaPostulacion(datos, parserUsado, msg.envelope.date || new Date());
+          await procesarNuevaPostulacion(datos, parserUsado, msg.envelope.date || new Date(), usuarioId);
         } else if (parserUsado.tipo === 'cambio_estado') {
-          await procesarCambioEstado(datos);
+          await procesarCambioEstado(datos, usuarioId);
         }
 
         marcarProcesado(messageId);

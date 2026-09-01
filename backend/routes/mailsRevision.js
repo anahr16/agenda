@@ -10,13 +10,16 @@ const router = express.Router();
 
 router.get('/', (req, res) => {
   const mails = db
-    .prepare('SELECT * FROM postulaciones_emails_revision ORDER BY fecha_recibido DESC, id DESC')
-    .all();
+    .prepare('SELECT * FROM postulaciones_emails_revision WHERE usuario_id = ? ORDER BY fecha_recibido DESC, id DESC')
+    .all(req.usuario.id);
   res.json(mails);
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM postulaciones_emails_revision WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM postulaciones_emails_revision WHERE id = ? AND usuario_id = ?').run(
+    req.params.id,
+    req.usuario.id
+  );
   res.status(204).send();
 });
 

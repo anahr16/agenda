@@ -17,6 +17,29 @@
   --gold: oklch(78% 0.13 80);
   --gold-deep: oklch(60% 0.13 70);
   --coral-deep: oklch(54% 0.15 25);
+  --card-bg: rgba(255, 255, 255, 0.72);
+  --card-border: rgba(255, 255, 255, 0.75);
+}
+
+/* Tema oscuro: se activa con `data-theme="dark"` en <html> (ThemeService/PerfilService),
+   no con prefers-color-scheme -- es una preferencia guardada por usuario, no del SO. */
+[data-theme='dark'] {
+  --ink: oklch(95% 0.012 325);
+  --ink-soft: oklch(78% 0.02 325);
+  --ink-faint: oklch(58% 0.02 325);
+  --bg: oklch(16% 0.03 325);
+  --surface: oklch(21% 0.035 325);
+  --surface-tint: oklch(26% 0.045 325);
+  --border: oklch(32% 0.045 325);
+  --accent-purple: #a875e8;
+  --accent-purple-deep: #8b4fd6;
+  --accent-pink: #f5a8c4;
+  --accent-pink-deep: #ef8fb0;
+  --gold: oklch(82% 0.13 85);
+  --gold-deep: oklch(68% 0.14 75);
+  --coral-deep: oklch(66% 0.16 25);
+  --card-bg: rgba(40, 24, 58, 0.55);
+  --card-border: rgba(255, 255, 255, 0.1);
 }
 
 @font-face {
@@ -41,10 +64,10 @@ body {
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--card-bg);
   backdrop-filter: blur(16px);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--card-border);
   box-shadow: 0 20px 45px -28px rgba(107, 50, 176, 0.35), 0 2px 8px -4px rgba(107, 50, 176, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -82,9 +105,11 @@ h1 {
 .form-postulacion input,
 .form-postulacion select {
   padding: 0.5rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--ink);
 }
 
 button {
@@ -102,9 +127,9 @@ button[type='submit'] {
 
 button.secundario,
 a.secundario {
-  background: white;
-  border: 1px solid #d1d5db;
-  color: #333;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
 }
 
 a.secundario {
@@ -123,7 +148,8 @@ a.secundario {
 .tabla {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--surface);
+  color: var(--ink);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -133,7 +159,7 @@ a.secundario {
 .tabla td {
   text-align: left;
   padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
 }
 

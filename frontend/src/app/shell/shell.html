@@ -2,27 +2,43 @@
   <div class="blob" style="width:24rem;height:24rem;background:var(--accent-purple);top:-6rem;left:10rem;opacity:0.18;"></div>
   <div class="blob" style="width:20rem;height:20rem;background:var(--accent-pink);bottom:-5rem;right:8rem;opacity:0.16;"></div>
 
-  <aside class="sidebar">
+  <div class="mobile-topbar">
+    <button type="button" class="mobile-menu-btn" (click)="toggleMenuMovil()" aria-label="Abrir menú">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
+    <span class="dot"><img src="/img/logo.png" alt="Anadesing" /></span>
+    <span class="word display">Agenda Inteligente</span>
+  </div>
+
+  @if (menuMovilAbierto()) {
+    <div class="sidebar-backdrop" (click)="cerrarMenuMovil()"></div>
+  }
+
+  <aside class="sidebar" [class.abierto]="menuMovilAbierto()">
     <div class="brand">
       <span class="dot"><img src="/img/logo.png" alt="Anadesing" /></span>
       <span class="word display">Agenda Inteligente</span>
     </div>
 
+    <button type="button" class="mobile-cerrar-btn" (click)="cerrarMenuMovil()" aria-label="Cerrar menú">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
     <nav class="nav-group">
-      <a routerLink="/agenda" routerLinkActive="active" class="nav-item">
+      <a routerLink="/agenda" routerLinkActive="active" class="nav-item" (click)="cerrarMenuMovil()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        Agenda
+        {{ 'shell.nav.agenda' | translate }}
       </a>
-      <a routerLink="/postulaciones" routerLinkActive="active" class="nav-item">
+      <a routerLink="/postulaciones" routerLinkActive="active" class="nav-item" (click)="cerrarMenuMovil()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-        Postulaciones
+        {{ 'shell.nav.postulaciones' | translate }}
       </a>
     </nav>
 
     @if (proximasEntrevistas().length > 0) {
-      <div class="sidebar-section-label">Próximas entrevistas</div>
+      <div class="sidebar-section-label">{{ 'shell.proximasEntrevistas' | translate }}</div>
       @for (pe of proximasEntrevistas(); track pe.id) {
-        <a routerLink="/agenda" class="sidebar-entrevista">
+        <a routerLink="/agenda" class="sidebar-entrevista" (click)="cerrarMenuMovil()">
           <span class="pip"></span>
           <span class="txt">
             <span class="empresa">{{ pe.empresa }}</span>
@@ -37,13 +53,13 @@
         <div class="annie-avatar"><img src="/img/annie.jpg" alt="Annie" /></div>
         <div class="annie-info">
           <span class="annie-name">Annie</span>
-          <span class="annie-status">{{ annieEscribiendo() ? 'Escribiendo…' : 'Tu asistente' }}</span>
+          <span class="annie-status">{{ (annieEscribiendo() ? 'shell.annie.escribiendo' : 'shell.annie.tuAsistente') | translate }}</span>
         </div>
         <button
           type="button"
           class="annie-voz-toggle"
           (click)="toggleVoz()"
-          [title]="vozActivada() ? 'Silenciar a Annie' : 'Activar la voz de Annie'"
+          [title]="(vozActivada() ? 'shell.annie.silenciar' : 'shell.annie.activarVoz') | translate"
         >
           @if (vozActivada()) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -80,40 +96,48 @@
             [class.activo]="escuchando()"
             (click)="escucharPorVoz()"
             [disabled]="annieEscribiendo() || escuchando()"
-            title="Hablarle a Annie"
+            [title]="'shell.annie.hablarle' | translate"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
         }
         <input
           type="text"
-          placeholder="Escríbele algo a Annie…"
+          [placeholder]="'shell.annie.placeholder' | translate"
           [(ngModel)]="annieInput"
           name="annieInput"
           [disabled]="annieEscribiendo()"
           autocomplete="off"
         />
-        <button type="submit" class="annie-send" [disabled]="annieEscribiendo() || !annieInput.trim()" title="Enviar">
+        <button type="submit" class="annie-send" [disabled]="annieEscribiendo() || !annieInput.trim()" [title]="'shell.annie.enviar' | translate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </form>
     </div>
 
-    <div class="sidebar-spacer"></div>
-
-    @if (pushDisponible) {
-      <button type="button" class="push-btn" (click)="activarRecordatorios()">Activar recordatorios</button>
-    }
-    @if (mensajePush()) {
-      <p class="aviso-push">{{ mensajePush() }}</p>
-    }
+    <div class="sidebar-spacer">
+      <img class="sticker-sidebar sticker-a" [src]="'/img/stickers/' + stickersSidebar[0] + '.png'" alt="" />
+      <img class="sticker-sidebar sticker-b" [src]="'/img/stickers/' + stickersSidebar[1] + '.png'" alt="" />
+      <svg class="sidebar-sparkle s1" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+      <svg class="sidebar-sparkle s2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+      <svg class="sidebar-sparkle s3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z"/></svg>
+    </div>
 
     <div class="user-card">
-      <div class="user-avatar">{{ inicial }}</div>
-      <div class="user-info">
-        <div class="user-name">{{ email }}</div>
+      <div class="user-avatar">
+        @if (fotoPerfil()) {
+          <img [src]="fotoPerfil()" alt="" />
+        } @else {
+          {{ inicial }}
+        }
       </div>
-      <button type="button" class="logout-btn" (click)="salir()" title="Salir">
+      <div class="user-info">
+        <div class="user-name">{{ nombreMostrado() }}</div>
+      </div>
+      <a routerLink="/configuracion" class="config-btn" [title]="'shell.configuracion' | translate" (click)="cerrarMenuMovil()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </a>
+      <button type="button" class="logout-btn" (click)="salir()" [title]="'shell.salir' | translate">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>

@@ -1,11 +1,12 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Cliente, ClientesService } from '../../core/clientes.service';
 
 @Component({
   selector: 'app-clientes',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslatePipe],
   templateUrl: './clientes.html',
   styleUrl: './clientes.css',
 })
@@ -16,7 +17,7 @@ export class Clientes implements OnInit {
   telefono = '';
   error = signal<string | null>(null);
 
-  constructor(private clientesService: ClientesService) {}
+  constructor(private clientesService: ClientesService, private translate: TranslateService) {}
 
   ngOnInit(): void {
     this.cargar();
@@ -49,12 +50,12 @@ export class Clientes implements OnInit {
         this.cancelarEdicion();
         this.cargar();
       },
-      error: (err) => this.error.set(err.error?.error || 'No se pudo guardar el cliente.'),
+      error: (err) => this.error.set(err.error?.error || this.translate.instant('clientes.errorGuardar')),
     });
   }
 
   borrar(cliente: Cliente): void {
-    if (!confirm(`¿Borrar a ${cliente.nombre}?`)) return;
+    if (!confirm(this.translate.instant('clientes.confirmBorrar', { nombre: cliente.nombre }))) return;
     this.clientesService.borrar(cliente.id).subscribe(() => this.cargar());
   }
 }

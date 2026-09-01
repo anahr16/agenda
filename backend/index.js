@@ -5,6 +5,7 @@ require('dotenv').config();
 // API de Telegram). Desactiva el "Happy Eyeballs" dual-stack para forzar
 // IPv4 en todo el proceso.
 require('net').setDefaultAutoSelectFamily(false);
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const authRouter = require('./routes/auth');
@@ -14,7 +15,9 @@ const postulacionesRouter = require('./routes/postulaciones');
 const mailsRevisionRouter = require('./routes/mailsRevision');
 const eventosRouter = require('./routes/eventos');
 const annieRouter = require('./routes/annie');
+const recordatoriosVozRouter = require('./routes/recordatoriosVoz');
 const requireAuth = require('./middleware/auth');
+const requireOwner = require('./middleware/requireOwner');
 const iniciarRecordatorios = require('./recordatorios');
 const iniciarSincronizacionEmails = require('./emailSync');
 const iniciarRecordatoriosPostulaciones = require('./recordatoriosPostulaciones');
@@ -28,20 +31,30 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4200';
 
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
 app.use('/auth', authRouter);
-app.use('/clientes', requireAuth, clientesRouter);
-app.use('/citas', requireAuth, citasRouter);
+// clientes/citas son del turnero original, antes de Postulaciones/Agenda --
+// nunca se migraron a multi-tenancy real (no tienen usuario_id), asi que se
+// dejan visibles solo para la cuenta dueña en vez de exponer datos viejos de
+// Ana a cualquier cuenta publica nueva.
+app.use('/clientes', requireAuth, requireOwner, clientesRouter);
+app.use('/citas', requireAuth, requireOwner, citasRouter);
 app.use('/postulaciones', requireAuth, postulacionesRouter);
 app.use('/mails-revision', requireAuth, mailsRevisionRouter);
 app.use('/eventos', requireAuth, eventosRouter);
 app.use('/annie', requireAuth, annieRouter);
+app.use('/recordatorios-voz', requireAuth, recordatoriosVozRouter);
 
-app.listen(PORT, () => {
+// Host explicito (0.0.0.0, todas las interfaces) -- sin esto, en algunas
+// maquinas Node termina escuchando solo en el loopback IPv6 (::1), y la app
+// Android (u otro dispositivo en la misma red) nunca llega al backend aunque
+// el Firewall este bien configurado.
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Agenda Inteligente backend escuchando en http://localhost:${PORT}`);
   iniciarRecordatorios();
   iniciarSincronizacionEmails();

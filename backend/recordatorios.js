@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const { getMessaging } = require('firebase-admin/messaging');
 const db = require('./db');
 const { getFirebaseApp, avisoFirebaseNoConfigurado } = require('./firebaseApp');
+const { obtenerIdDueña } = require('./ownerUsuario');
 
 function formatoUTC(date) {
   return date.toISOString().slice(0, 19);
@@ -42,16 +43,21 @@ async function procesarRecordatorios() {
 
   if (citas.length === 0) return;
 
-  const usuarios = db.prepare('SELECT * FROM usuarios WHERE fcm_token IS NOT NULL').all();
-  if (usuarios.length === 0) return;
+  // clientes/citas es la funcion vieja del turnero, sin usuario_id propio --
+  // solo la dueña la usa (ver requireOwner.js en las rutas), asi que el push
+  // va solo a su token, no a cualquier cuenta publica con notificaciones
+  // activas.
+  const usuarioId = obtenerIdDueña();
+  const usuario = usuarioId
+    ? db.prepare('SELECT * FROM usuarios WHERE id = ? AND fcm_token IS NOT NULL').get(usuarioId)
+    : null;
+  if (!usuario) return;
 
   for (const cita of citas) {
-    for (const usuario of usuarios) {
-      try {
-        await enviarPush(usuario.fcm_token, cita);
-      } catch (err) {
-        console.error(`[recordatorios] Error enviando push para cita #${cita.id}:`, err.message);
-      }
+    try {
+      await enviarPush(usuario.fcm_token, cita);
+    } catch (err) {
+      console.error(`[recordatorios] Error enviando push para cita #${cita.id}:`, err.message);
     }
     db.prepare('UPDATE citas SET recordatorio_enviado = 1 WHERE id = ?').run(cita.id);
   }

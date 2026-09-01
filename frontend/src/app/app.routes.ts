@@ -15,6 +15,10 @@ export const routes: Routes = [
         path: 'postulaciones',
         loadComponent: () => import('./pages/postulaciones/postulaciones').then((m) => m.Postulaciones),
       },
+      {
+        path: 'configuracion',
+        loadComponent: () => import('./pages/configuracion/configuracion').then((m) => m.Configuracion),
+      },
       { path: '', redirectTo: 'agenda', pathMatch: 'full' },
     ],
   },

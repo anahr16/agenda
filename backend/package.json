@@ -21,6 +21,9 @@
     "imapflow": "^1.7.6",
     "jsonwebtoken": "^9.0.3",
     "mailparser": "^3.9.16",
-    "node-cron": "^4.6.0"
+    "multer": "^2.3.0",
+    "node-cron": "^4.6.0",
+    "puppeteer": "^25.9.0",
+    "yauzl": "^3.4.0"
   }
 }

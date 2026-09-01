@@ -1,10 +1,16 @@
 const cron = require('node-cron');
 const db = require('./db');
 const { enviarTelegram } = require('./telegram');
+const { obtenerIdDueña } = require('./ownerUsuario');
 
 const DIAS_SEGUIMIENTO = Number(process.env.SEGUIMIENTO_POSTULACIONES_DIAS || 2);
 
 async function procesarRecordatoriosSeguimiento() {
+  // Telegram es un unico chat compartido, no por usuario -- se limita a las
+  // postulaciones de la cuenta dueña (ver ownerUsuario.js).
+  const usuarioId = obtenerIdDueña();
+  if (!usuarioId) return;
+
   const limite = new Date();
   limite.setDate(limite.getDate() - DIAS_SEGUIMIENTO);
   const limiteStr = limite.toISOString().slice(0, 10);
@@ -12,14 +18,15 @@ async function procesarRecordatoriosSeguimiento() {
   const postulaciones = db
     .prepare(
       `SELECT * FROM postulaciones
-       WHERE estado = 'enviada'
+       WHERE usuario_id = ?
+         AND estado = 'enviada'
          AND recordatorio_seguimiento_enviado = 0
          AND fecha_postulacion <= ?`
     )
-    .all(limiteStr);
+    .all(usuarioId, limiteStr);
 
   for (const postulacion of postulaciones) {
-    const mensaje = `📋 Postulaste a "${postulacion.puesto}" en ${postulacion.empresa} hace ${DIAS_SEGUIMIENTO} días y todavía no hay novedades. ¿Le hacés seguimiento?`;
+    const mensaje = `📋 Postulaste a "${postulacion.puesto}" en ${postulacion.empresa} hace ${DIAS_SEGUIMIENTO} días y todavía no hay novedades. ¿Le haces seguimiento?`;
     try {
       await enviarTelegram(mensaje);
     } catch (err) {

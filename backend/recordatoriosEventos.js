@@ -11,6 +11,7 @@
 const cron = require('node-cron');
 const db = require('./db');
 const { enviarTelegram } = require('./telegram');
+const { obtenerIdDueña } = require('./ownerUsuario');
 
 function ahoraNaive(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -23,9 +24,15 @@ async function procesarRecordatoriosEventos() {
   const desde = ahoraNaive(ahora);
   const hasta = ahoraNaive(new Date(ahora.getTime() + minutosAntes * 60000));
 
+  // Telegram es un unico chat compartido (TELEGRAM_CHAT_ID), no por usuario --
+  // se limita a los eventos de la cuenta dueña para no avisarle de eventos de
+  // una cuenta publica nueva en su propio chat.
+  const usuarioId = obtenerIdDueña();
+  if (!usuarioId) return;
+
   const eventos = db
-    .prepare('SELECT * FROM eventos WHERE recordatorio_enviado = 0 AND hora IS NOT NULL')
-    .all()
+    .prepare('SELECT * FROM eventos WHERE usuario_id = ? AND recordatorio_enviado = 0 AND hora IS NOT NULL')
+    .all(usuarioId)
     .filter((e) => {
       const momento = `${e.fecha}T${e.hora}:00`;
       return momento > desde && momento <= hasta;

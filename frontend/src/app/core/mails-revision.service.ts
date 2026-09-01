@@ -21,6 +21,11 @@ export class MailsRevisionService {
 
   constructor(private http: HttpClient) {}
 
+  /** Se llama al cerrar sesion -- sin esto, si otra cuenta se loguea en la misma pestaña, veria por un instante los mails cacheados de la cuenta anterior. */
+  reset(): void {
+    this.mails.set([]);
+  }
+
   listar() {
     return this.http.get<MailRevision[]>(this.base).pipe(tap((lista) => this.mails.set(lista)));
   }

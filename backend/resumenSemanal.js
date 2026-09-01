@@ -7,6 +7,7 @@
 const cron = require('node-cron');
 const db = require('./db');
 const { enviarTelegram } = require('./telegram');
+const { obtenerIdDueña } = require('./ownerUsuario');
 
 function formatoUTC(date) {
   return date.toISOString().slice(0, 19);
@@ -17,29 +18,36 @@ function formatoLocal(iso) {
   return fecha.toLocaleString('es-419', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function construirResumen() {
+// Telegram es un unico chat compartido, no por usuario -- el resumen es solo
+// de la actividad de la cuenta dueña (ver ownerUsuario.js). Si no hay ninguna
+// cuenta marcada como dueña, no hay resumen posible.
+function construirResumen(usuarioId) {
   const hace7dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const en7dias = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const hoy = new Date().toISOString().slice(0, 10);
 
   const nuevas = db
-    .prepare('SELECT empresa, puesto, portal FROM postulaciones WHERE creado_en >= datetime(?) ORDER BY creado_en DESC')
-    .all(hace7dias.toISOString());
+    .prepare(
+      'SELECT empresa, puesto, portal FROM postulaciones WHERE usuario_id = ? AND creado_en >= datetime(?) ORDER BY creado_en DESC'
+    )
+    .all(usuarioId, hace7dias.toISOString());
 
-  const total = db.prepare('SELECT COUNT(*) n FROM postulaciones').get().n;
-  const porEstado = db.prepare('SELECT estado, COUNT(*) n FROM postulaciones GROUP BY estado').all();
+  const total = db.prepare('SELECT COUNT(*) n FROM postulaciones WHERE usuario_id = ?').get(usuarioId).n;
+  const porEstado = db
+    .prepare('SELECT estado, COUNT(*) n FROM postulaciones WHERE usuario_id = ? GROUP BY estado')
+    .all(usuarioId);
 
   const entrevistas = db
     .prepare(
       `SELECT empresa, puesto, fecha_entrevista FROM postulaciones
-       WHERE fecha_entrevista IS NOT NULL AND fecha_entrevista >= ? AND fecha_entrevista <= ?
+       WHERE usuario_id = ? AND fecha_entrevista IS NOT NULL AND fecha_entrevista >= ? AND fecha_entrevista <= ?
        ORDER BY fecha_entrevista`
     )
-    .all(formatoUTC(new Date()), formatoUTC(en7dias));
+    .all(usuarioId, formatoUTC(new Date()), formatoUTC(en7dias));
 
   const eventos = db
-    .prepare('SELECT titulo, fecha, hora FROM eventos WHERE fecha >= ? AND fecha <= ? ORDER BY fecha, hora')
-    .all(hoy, en7dias.toISOString().slice(0, 10));
+    .prepare('SELECT titulo, fecha, hora FROM eventos WHERE usuario_id = ? AND fecha >= ? AND fecha <= ? ORDER BY fecha, hora')
+    .all(usuarioId, hoy, en7dias.toISOString().slice(0, 10));
 
   const lineas = ['📊 Resumen semanal de tu búsqueda laboral', ''];
 
@@ -64,8 +72,10 @@ function construirResumen() {
 }
 
 async function enviarResumenSemanal() {
+  const usuarioId = obtenerIdDueña();
+  if (!usuarioId) return;
   try {
-    await enviarTelegram(construirResumen());
+    await enviarTelegram(construirResumen(usuarioId));
     console.log('[resumen-semanal] Resumen semanal enviado por Telegram.');
   } catch (err) {
     console.error('[resumen-semanal] No se pudo enviar el resumen semanal:', err.message);

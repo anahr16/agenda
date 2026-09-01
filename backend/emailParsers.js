@@ -111,6 +111,25 @@ const PARSERS = [
     },
   },
   {
+    // Variante mas nueva del cambio de estado de Computrabajo: en vez del
+    // mail transaccional "Nuevo estado en..." con codigo de campania, manda
+    // una encuesta de seguimiento ("¿La empresa X se comunico contigo?")
+    // que igual confirma que la empresa vio el CV -- mismo significado que
+    // MatchVisto arriba, pero sin ese formato (campania
+    // auto_cand_follow_company_contact_status, sin "Nuevo estado en").
+    portal: 'Computrabajo',
+    tipo: 'cambio_estado',
+    remitente: /@computrabajo\.com$/i,
+    extraer(asunto, texto) {
+      const empresa = (asunto.match(/¿La empresa (.+?) se comunic/i) || [])[1];
+      // "vio tu CV" a veces cae partido por el word-wrap del mail (salto de
+      // linea en vez de espacio), por eso \s+ entre cada palabra del ancla.
+      const puesto = (texto.match(/vio\s+tu\s+CV\s+para\s+el\s+puesto\s+de\s+([\s\S]+?)\.\s*Queremos/i) || [])[1];
+      if (!empresa || !puesto) return null;
+      return { empresa: limpiarEmpresa(empresa), puesto: limpiar(puesto), estado: 'vista' };
+    },
+  },
+  {
     // ATS generico (no es un portal de empleo, es el software que usa cada
     // empresa para gestionar SU propio proceso -- por eso el remitente
     // cambia segun quien lo use, ej. "HR Capital"). El asunto trae el

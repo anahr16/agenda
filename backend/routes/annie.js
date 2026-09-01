@@ -2,6 +2,7 @@ const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../db');
 const { calcularProbabilidad } = require('../probabilidadLlamada');
+const { puedeChatear, puedeHablar, registrarChat, registrarTts } = require('../annieLimite');
 
 const router = express.Router();
 const client = new Anthropic();
@@ -80,13 +81,15 @@ const HERRAMIENTAS = [
   },
 ];
 
-function buscarPostulacionPorEmpresa(empresa) {
-  return db.prepare('SELECT * FROM postulaciones WHERE lower(empresa) = lower(?) ORDER BY creado_en DESC').get(empresa);
+function buscarPostulacionPorEmpresa(empresa, usuarioId) {
+  return db
+    .prepare('SELECT * FROM postulaciones WHERE lower(empresa) = lower(?) AND usuario_id = ? ORDER BY creado_en DESC')
+    .get(empresa, usuarioId);
 }
 
-function agendarEntrevista({ empresa, puesto, fecha_entrevista }) {
+function agendarEntrevista({ empresa, puesto, fecha_entrevista }, usuarioId) {
   const fechaAlmacenable = aFechaAlmacenable(fecha_entrevista);
-  const existente = buscarPostulacionPorEmpresa(empresa);
+  const existente = buscarPostulacionPorEmpresa(empresa, usuarioId);
   if (existente) {
     db.prepare(
       "UPDATE postulaciones SET fecha_entrevista = ?, estado = 'entrevista', recordatorio_entrevista_enviado = 0 WHERE id = ?"
@@ -96,26 +99,28 @@ function agendarEntrevista({ empresa, puesto, fecha_entrevista }) {
   const hoy = fechaLocalNaive().slice(0, 10);
   const resultado = db
     .prepare(
-      `INSERT INTO postulaciones (empresa, puesto, fecha_postulacion, estado, fecha_entrevista)
-       VALUES (?, ?, ?, 'entrevista', ?)`
+      `INSERT INTO postulaciones (empresa, puesto, fecha_postulacion, estado, fecha_entrevista, usuario_id)
+       VALUES (?, ?, ?, 'entrevista', ?, ?)`
     )
-    .run(empresa, puesto || 'Sin especificar', hoy, fechaAlmacenable);
+    .run(empresa, puesto || 'Sin especificar', hoy, fechaAlmacenable, usuarioId);
   return db.prepare('SELECT * FROM postulaciones WHERE id = ?').get(resultado.lastInsertRowid);
 }
 
-function crearEvento({ titulo, fecha, hora, notas, tipo }) {
+function crearEvento({ titulo, fecha, hora, notas, tipo }, usuarioId) {
   const resultado = db
-    .prepare("INSERT INTO eventos (titulo, fecha, hora, notas, tipo) VALUES (?, ?, ?, ?, COALESCE(?, 'personal'))")
-    .run(titulo, fecha, hora || null, notas || null, tipo || null);
+    .prepare(
+      "INSERT INTO eventos (titulo, fecha, hora, notas, tipo, usuario_id) VALUES (?, ?, ?, ?, COALESCE(?, 'personal'), ?)"
+    )
+    .run(titulo, fecha, hora || null, notas || null, tipo || null, usuarioId);
   return db.prepare('SELECT * FROM eventos WHERE id = ?').get(resultado.lastInsertRowid);
 }
 
-function contextoPostulaciones() {
+function contextoPostulaciones(usuarioId) {
   const filas = db
     .prepare(
-      'SELECT empresa, puesto, estado, fecha_entrevista, fecha_postulacion, compatibilidad_oferta FROM postulaciones ORDER BY creado_en DESC LIMIT 30'
+      'SELECT empresa, puesto, estado, fecha_entrevista, fecha_postulacion, compatibilidad_oferta FROM postulaciones WHERE usuario_id = ? ORDER BY creado_en DESC LIMIT 30'
     )
-    .all();
+    .all(usuarioId);
   if (filas.length === 0) return 'Todavia no hay postulaciones cargadas.';
   return filas
     .map((p) => {
@@ -131,14 +136,18 @@ function contextoPostulaciones() {
     .join('\n');
 }
 
-function systemPrompt() {
+function systemPrompt(idioma, usuarioId) {
+  const instruccionIdioma =
+    idioma === 'en'
+      ? 'You speak English, warm, close and direct, in a few sentences (max 2-3).'
+      : 'Hablas en espanol neutro (sin "vos" ni modismos regionales de ningun pais en particular), calida, cercana y directa, en pocas oraciones (maximo 2-3).';
   return `Eres Annie, la asistente de Agenda Inteligente. Revisas los mails de postulaciones laborales de la usuaria y la ayudas a no perderse ninguna entrevista.
-Hablas en espanol neutro (sin "vos" ni modismos regionales de ningun pais en particular), calida, cercana y directa, en pocas oraciones (maximo 2-3).
+${instruccionIdioma}
 La fecha y hora actual (hora local de la usuaria) es ${fechaLocalNaive()}, que es ${diaSemanaLocal()}. Usa ese dia de la semana tal cual para calcular fechas relativas ("el lunes que viene", "el viernes", etc.) -- no lo recalcules vos misma.
 Cuando la usuaria te pida agendar, mover o cambiar una entrevista de TRABAJO (menciona una empresa), usa agendar_entrevista -- si no sabe el puesto, usa "Sin especificar" como valor. Para cualquier otra cosa personal (una cita con alguien, un control medico, un cumpleanos, un recordatorio suelto) usa crear_evento en vez de tratarla como si fuera laboral.
 Estas son las postulaciones actuales, con dos datos calculados que pueden aparecer:
 "probabilidad de llamada" (estimacion heuristica de que la contacten, NO una garantia) y "compatibilidad con la oferta" (que tan bien calza su perfil con esa oferta puntual, calculado con IA). Si te pregunta cuales son sus postulaciones mas prometedoras o a cuales priorizar, usa estos datos, pero aclarale que son estimaciones, no certezas.
-${contextoPostulaciones()}
+${contextoPostulaciones(usuarioId)}
 Despues de usar una herramienta, confirmale a la usuaria en una oracion corta lo que hiciste.`;
 }
 
@@ -150,15 +159,23 @@ router.post('/chat', async (req, res) => {
   if (!mensaje || typeof mensaje !== 'string') {
     return res.status(400).json({ error: 'Falta el mensaje' });
   }
+  if (!puedeChatear(req.usuario.id)) {
+    return res.status(429).json({
+      error: 'Llegaste al límite diario de mensajes con Annie. Probá de nuevo mañana.',
+      limite_alcanzado: true,
+    });
+  }
 
   const mensajes = [...(Array.isArray(historial) ? historial.slice(-10) : []), { role: 'user', content: mensaje }];
   const acciones = [];
+  const usuario = db.prepare('SELECT idioma FROM usuarios WHERE id = ?').get(req.usuario.id);
+  const prompt = systemPrompt(usuario?.idioma, req.usuario.id);
 
   try {
     let respuesta = await client.messages.create({
       model: MODELO,
       max_tokens: 1024,
-      system: systemPrompt(),
+      system: prompt,
       tools: HERRAMIENTAS,
       messages: mensajes,
     });
@@ -171,10 +188,10 @@ router.post('/chat', async (req, res) => {
         let resultado;
         try {
           if (uso.name === 'agendar_entrevista') {
-            resultado = agendarEntrevista(uso.input);
+            resultado = agendarEntrevista(uso.input, req.usuario.id);
             acciones.push(resultado);
           } else if (uso.name === 'crear_evento') {
-            resultado = crearEvento(uso.input);
+            resultado = crearEvento(uso.input, req.usuario.id);
             acciones.push(resultado);
           } else {
             resultado = { error: 'Herramienta desconocida' };
@@ -190,7 +207,7 @@ router.post('/chat', async (req, res) => {
       respuesta = await client.messages.create({
         model: MODELO,
         max_tokens: 1024,
-        system: systemPrompt(),
+        system: prompt,
         tools: HERRAMIENTAS,
         messages: mensajes,
       });
@@ -202,6 +219,7 @@ router.post('/chat', async (req, res) => {
       .join('\n')
       .trim();
 
+    registrarChat(req.usuario.id);
     res.json({
       respuesta: texto || 'Listo.',
       historial: [...mensajes, { role: 'assistant', content: respuesta.content }],
@@ -222,6 +240,9 @@ router.post('/tts', async (req, res) => {
   const { texto } = req.body || {};
   if (!texto || typeof texto !== 'string') {
     return res.status(400).json({ error: 'Falta el texto' });
+  }
+  if (!puedeHablar(req.usuario.id)) {
+    return res.status(429).json({ error: 'Llegaste al límite diario de voz de Annie.', limite_alcanzado: true });
   }
   console.log(`[annie-tts] Pedido de voz (${new Date().toISOString()}): "${texto}"`);
 
@@ -253,12 +274,30 @@ router.post('/tts', async (req, res) => {
     }
 
     const audio = Buffer.from(await respuesta.arrayBuffer());
+    registrarTts(req.usuario.id);
     res.set('Content-Type', 'audio/mpeg');
     res.send(audio);
   } catch (err) {
     console.error('[annie-tts] Error consultando ElevenLabs:', err.message);
     res.status(502).json({ error: 'No se pudo generar la voz de Annie.' });
   }
+});
+
+// Resumen de "mientras no estuviste" para el saludo -- lo que paso en
+// Postulaciones (nueva postulacion detectada, cambio de estado) desde la
+// ultima vez que Annie saludo a esta usuaria. Corta y actualiza el corte en
+// el mismo pedido para que el proximo saludo no repita lo ya contado.
+router.get('/actividad-pendiente', (req, res) => {
+  const usuario = db.prepare('SELECT ultima_bienvenida FROM usuarios WHERE id = ?').get(req.usuario.id);
+  // Si nunca se guardo un corte (primera vez que se llama este endpoint para
+  // esta usuaria), no hay que devolver vacio -- hay que traer todo lo que
+  // haya en el log, porque para ella es la primera vez que se entera.
+  const desde = usuario?.ultima_bienvenida || '0000-00-00';
+  const actividad = db
+    .prepare('SELECT mensaje FROM actividad_postulaciones WHERE usuario_id = ? AND creado_en > ? ORDER BY creado_en ASC')
+    .all(req.usuario.id, desde);
+  db.prepare("UPDATE usuarios SET ultima_bienvenida = datetime('now') WHERE id = ?").run(req.usuario.id);
+  res.json({ actividad: actividad.map((a) => a.mensaje) });
 });
 
 module.exports = router;

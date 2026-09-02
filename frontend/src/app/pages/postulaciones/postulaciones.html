@@ -7,6 +7,9 @@
     <button type="button" class="btn-recalcular" [disabled]="recalculando()" (click)="recalcularCompatibilidad()">
       {{ (recalculando() ? 'postulaciones.recalculando' : 'postulaciones.recalcularCompatibilidad') | translate }}
     </button>
+    <button type="button" class="btn-recalcular" [disabled]="sincronizandoComputrabajo()" (click)="sincronizarComputrabajo()">
+      {{ (sincronizandoComputrabajo() ? 'postulaciones.sincronizandoComputrabajo' : 'postulaciones.sincronizarComputrabajo') | translate }}
+    </button>
     @if (!mostrarFormulario()) {
       <button type="button" class="btn-add" (click)="abrirNueva()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -18,6 +21,10 @@
 
 @if (mensajeRecalculo()) {
   <p class="mensaje-recalculo">{{ mensajeRecalculo() }}</p>
+}
+
+@if (mensajeSincronizacionComputrabajo()) {
+  <p class="mensaje-recalculo">{{ mensajeSincronizacionComputrabajo() }}</p>
 }
 
 <ng-template #formularioPostulacion>

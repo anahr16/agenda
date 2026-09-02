@@ -114,7 +114,10 @@ fun PostulacionesScreen(viewModel: PostulacionesViewModel) {
             )
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
             OutlinedButton(
                 onClick = viewModel::recalcularCompatibilidad,
                 enabled = !viewModel.recalculando,
@@ -122,12 +125,23 @@ fun PostulacionesScreen(viewModel: PostulacionesViewModel) {
             ) {
                 Text(if (viewModel.recalculando) "Recalculando…" else "Recalcular compatibilidad")
             }
+            OutlinedButton(
+                onClick = viewModel::sincronizarComputrabajo,
+                enabled = !viewModel.sincronizandoComputrabajo,
+                shape = RoundedCornerShape(999.dp),
+            ) {
+                Text(if (viewModel.sincronizandoComputrabajo) "Sincronizando…" else "Traer links de Computrabajo")
+            }
             if (!viewModel.mostrarFormulario) {
                 BotonDegradado(texto = "Nueva postulación", onClick = viewModel::abrirNueva)
             }
         }
 
         viewModel.mensajeRecalculo?.let {
+            Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+        }
+
+        viewModel.mensajeSincronizacionComputrabajo?.let {
             Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
         }
 

@@ -76,6 +76,11 @@ class PostulacionesViewModel(private val repository: PostulacionesRepository) : 
     var mensajeRecalculo by mutableStateOf<String?>(null)
         private set
 
+    var sincronizandoComputrabajo by mutableStateOf(false)
+        private set
+    var mensajeSincronizacionComputrabajo by mutableStateOf<String?>(null)
+        private set
+
     var expandidoRevisionId by mutableStateOf<Int?>(null)
         private set
     var seleccionadosRevision by mutableStateOf<Set<Int>>(emptySet())
@@ -321,6 +326,23 @@ class PostulacionesViewModel(private val repository: PostulacionesRepository) : 
                 mensajeRecalculo = "No se pudo recalcular la compatibilidad."
             } finally {
                 recalculando = false
+            }
+        }
+    }
+
+    fun sincronizarComputrabajo() {
+        sincronizandoComputrabajo = true
+        mensajeSincronizacionComputrabajo = null
+        viewModelScope.launch {
+            try {
+                val res = repository.sincronizarComputrabajo()
+                mensajeSincronizacionComputrabajo =
+                    "Listo: ${res.actualizadas} postulación(es) actualizadas, ${res.sinMatch} sin encontrar en Computrabajo."
+                cargar()
+            } catch (e: Exception) {
+                mensajeSincronizacionComputrabajo = "No se pudo sincronizar con Computrabajo."
+            } finally {
+                sincronizandoComputrabajo = false
             }
         }
     }

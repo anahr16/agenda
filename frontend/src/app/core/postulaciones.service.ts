@@ -80,4 +80,8 @@ export class PostulacionesService {
   recalcularCompatibilidad() {
     return this.http.post<{ actualizadas: number }>(`${this.base}/recalcular-compatibilidad`, {});
   }
+
+  sincronizarComputrabajo() {
+    return this.http.post<{ actualizadas: number; sinMatch: number }>(`${this.base}/sincronizar-computrabajo`, {});
+  }
 }

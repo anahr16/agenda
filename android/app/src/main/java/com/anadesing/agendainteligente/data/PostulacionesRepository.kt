@@ -13,6 +13,8 @@ class PostulacionesRepository(private val api: PostulacionesApi) {
 
     suspend fun recalcularCompatibilidad(): RecalcularCompatibilidadResponse = api.recalcularCompatibilidad()
 
+    suspend fun sincronizarComputrabajo(): SincronizarComputrabajoResponse = api.sincronizarComputrabajo()
+
     suspend fun listarMailsRevision(): List<MailRevision> = api.listarMailsRevision()
 
     suspend fun descartarMailRevision(id: Int) = api.descartarMailRevision(id)

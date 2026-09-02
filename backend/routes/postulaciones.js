@@ -3,6 +3,7 @@ const db = require('../db');
 const { calcularProbabilidad } = require('../probabilidadLlamada');
 const { calcularCompatibilidad } = require('../compatibilidadOferta');
 const { leerPerfil } = require('../perfil');
+const { sincronizar: sincronizarComputrabajo } = require('../computrabajoSync');
 
 const router = express.Router();
 
@@ -55,6 +56,21 @@ router.post('/recalcular-compatibilidad', async (req, res) => {
     );
   }
   res.json({ actualizadas: postulaciones.length });
+});
+
+// Trae los links reales de "mis postulaciones" de Computrabajo y les rellena
+// descripcion + compatibilidad a las que ya estan cargadas por mail pero
+// sin link -- ver computrabajoSync.js y la seccion "Computrabajo" de
+// readme.md. Manual (boton), no cron: cada corrida son varios requests
+// paginados a Computrabajo y ya hubo un 403 por probarlo seguido.
+router.post('/sincronizar-computrabajo', async (req, res) => {
+  try {
+    const { actualizadas, sinMatch } = await sincronizarComputrabajo(req.usuario.id);
+    res.json({ actualizadas: actualizadas.length, sinMatch: sinMatch.length });
+  } catch (err) {
+    console.error('[postulaciones] Error sincronizando con Computrabajo:', err.message);
+    res.status(400).json({ error: err.message });
+  }
 });
 
 router.get('/stats', (req, res) => {

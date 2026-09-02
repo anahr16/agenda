@@ -136,6 +136,8 @@
     "subtitulo": "Track your job search",
     "recalculando": "Recalculating…",
     "recalcularCompatibilidad": "Recalculate match",
+    "sincronizandoComputrabajo": "Syncing…",
+    "sincronizarComputrabajo": "Fetch Computrabajo links",
     "nuevaPostulacion": "New application",
     "campo": {
       "empresa": "Company",
@@ -176,6 +178,8 @@
     "errorGuardar": "Couldn't save the application.",
     "errorRecalcular": "Couldn't recalculate the match.",
     "recalculoListo": "Done, {{cantidad}} application(s) recalculated.",
+    "errorSincronizacionComputrabajo": "Couldn't sync with Computrabajo.",
+    "sincronizacionComputrabajoLista": "Done: {{actualizadas}} application(s) updated, {{sinMatch}} not found on Computrabajo.",
     "pctCompatibilidad": "{{pct}}% match",
     "pctProbLlamada": "{{pct}}% call chance",
     "probLlamadaTitle": "Heuristic estimate based on your data, not a guarantee",

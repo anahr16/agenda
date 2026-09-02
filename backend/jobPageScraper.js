@@ -20,6 +20,25 @@ const SCRAPERS = [
       return texto ? texto.replace(/\s+/g, ' ').trim() : null;
     },
   },
+  {
+    // Solo el aviso publico (cl.computrabajo.com) -- no confundir con el
+    // panel de "mis postulaciones" (candidato.cl.computrabajo.com), que
+    // requiere sesion y lo maneja computrabajoScraper.js aparte.
+    portal: 'Computrabajo',
+    urlPattern: /^https:\/\/cl\.computrabajo\.com\//i,
+    async extraerDescripcion(html) {
+      const $ = cheerio.load(html);
+      const contenedor = $('div[div-link="oferta"]');
+      if (!contenedor.length) return null;
+      contenedor.find('br').replaceWith(' ');
+      const partes = [];
+      contenedor.find('p.mbB, p.fwB.fs18.mtB.mb10, ul.disc.mbB li').each((_, el) => {
+        partes.push($(el).text());
+      });
+      const texto = partes.join(' ').replace(/\s+/g, ' ').trim();
+      return texto || null;
+    },
+  },
 ];
 
 async function obtenerDescripcion(url) {

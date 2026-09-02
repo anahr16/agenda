@@ -650,7 +650,7 @@ real.
   `usuarios` (mismo texto, no se perdió nada). El archivo sigue existiendo
   en disco pero ya no lo lee ningún código.
 
-### Computrabajo: sesión conectada para compatibilidad automática (2026-09-01, en curso)
+### Computrabajo: sesión conectada para compatibilidad automática (2026-09-01, código completo pero bloqueado en la prueba en vivo)
 
 Aun con `perfil_cv` por cuenta, la compatibilidad **solo se calcula sola
 cuando hay `descripcion`** -- y de los portales que reconoce el sistema,
@@ -712,15 +712,63 @@ Google.
 - **Verificado en vivo**: `verificarSesion()` confirmó dos veces que la
   sesión exportada autentica de verdad (no redirige a
   `secure.computrabajo.com/Account`).
-- **Pendiente, pausado a propósito**: mapear la página real de "mis
-  postulaciones" (con los links reales) y el matching contra las
-  postulaciones ya cargadas por mail. Se pausó después de varias pruebas
-  seguidas en poco tiempo, que empezaron a recibir `403 Forbidden` —
-  patrón compatible con un límite de velocidad/anti-bot del lado de
-  Computrabajo reaccionando a la repetición, no un problema del código.
-  Antes de seguir: dejar pasar varias horas sin pedidos, y de ahí en más
-  probar de a un pedido bien espaciado por vez, nunca sesiones de prueba
-  seguidas como la de hoy.
+- **Mapeo de "mis postulaciones" (2026-09-02)**: la usuaria pegó el HTML
+  real de esa página (copiado desde su propio navegador ya logueado, cero
+  requests nuevos a Computrabajo para mapearla). Cada tarjeta trae el link
+  real al aviso en el atributo `data-shortcut-see-offer` -- el dato que
+  faltaba. Selector: `div.box[data-match]`, con `h1` (puesto), `p.fs16.fc_base.mt5`
+  (empresa -- vacío cuando Computrabajo la oculta, "empleador
+  confidencial") y `[data-shortcut-see-offer]` (link). Paginación via
+  `nav.pag_numeric .b_next[data-path]`.
+- **`backend/jobPageScraper.js`**: nuevo scraper para el portal
+  `Computrabajo` (aviso público en `cl.computrabajo.com/ofertas-de-trabajo/...`,
+  sin sesión -- distinto del panel privado de arriba). Selector
+  `div[div-link="oferta"]`, uniendo `p.mbB` (descripción + palabras clave),
+  el título "Requerimientos" y los `li` de `ul.disc.mbB`, con los `<br>`
+  reemplazados por espacio antes de leer el texto (si no, el texto sale
+  pegado tipo "tecnología.Nos encontramos"). Probado contra un aviso real
+  ya guardado en la base -- el texto reconstruido coincide con la
+  descripción que ya estaba pegada a mano para esa postulación.
+- **`backend/computrabajoScraper.js` → `obtenerPostulaciones(usuarioId)`**:
+  trae el listado completo paginando de a una página por vez, con
+  `PAUSA_ENTRE_PAGINAS_MS` (2.5s) entre cada una en vez de pedirlas todas
+  juntas. Si la primera página devuelve 0 tarjetas (sospechoso -- debería
+  haber postulaciones), no lo trata como "no hay nada": guarda el HTML
+  crudo en `backend/.computrabajo-debug/` (gitignored) y tira error, para
+  poder diagnosticar un bloqueo sin gastar otro request en vivo
+  averiguando qué pasó.
+- **`backend/computrabajoSync.js`** (nuevo) → `sincronizar(usuarioId)`:
+  cruza ese listado contra las postulaciones de Computrabajo ya cargadas
+  por mail que todavía no tienen `link` (matching por `puesto` normalizado
+  -- sin tildes, minúsculas, espacios colapsados; la empresa solo desempata
+  cuando Computrabajo la muestra). Para cada match, trae la descripción
+  real y recalcula compatibilidad, y deja una entrada en el feed de
+  actividad (`actividad_postulaciones`, tipo `computrabajo`). Ruta `POST
+  /postulaciones/sincronizar-computrabajo` (manual, botón "Traer links de
+  Computrabajo" en Postulaciones -- web y Android nativa -- no cron: cada
+  corrida son varios requests reales a Computrabajo).
+- **Verificado en frío, sin red**: el parser de "mis postulaciones" y el
+  matching se probaron contra el HTML pegado por la usuaria (10 tarjetas,
+  6 matchearon bien contra postulaciones pendientes reales de la base) sin
+  generarle ningún request nuevo a Computrabajo -- recién se hizo un
+  request en vivo al final, para la prueba end-to-end.
+- **Prueba en vivo (2026-09-02): bloqueada por Computrabajo otra vez**. El
+  primer request del día -- un solo `page.goto()`, no una sesión de
+  pruebas repetidas -- devolvió `403 Forbidden` (página genérica de
+  bloqueo de servidor/WAF, no un challenge de Computrabajo). Que haya
+  vuelto a pasar en el *primer* pedido de un día distinto, sin repetición
+  de por medio, sugiere que el bloqueo de la sesión del 01-09 nunca se
+  levantó del todo, o que el fingerprint de Puppeteer headless (no el
+  ritmo de pedidos) es lo que está gatillando el bloqueo -- espaciar más
+  los pedidos podría no alcanzar. **Pendiente, pausado de nuevo a
+  propósito**: el código está completo y lo que se pudo probar sin red
+  (parsing + matching) funciona bien, pero falta la confirmación en vivo.
+  Antes de reintentar: dejar pasar bastante más que unas horas (días,
+  no hay urgencia), y si vuelve a dar 403 revisar el HTML guardado en
+  `backend/.computrabajo-debug/` -- si el bloqueo persiste con pedidos
+  bien espaciados, el problema sería el fingerprint de Puppeteer, no el
+  ritmo, y ahí valdría la pena evaluar si tiene sentido seguir por este
+  camino en vez de seguir reintentando.
 
 ### Agenda
 

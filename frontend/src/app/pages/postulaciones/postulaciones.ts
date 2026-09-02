@@ -74,6 +74,9 @@ export class Postulaciones implements OnInit {
   recalculando = signal(false);
   mensajeRecalculo = signal<string | null>(null);
 
+  sincronizandoComputrabajo = signal(false);
+  mensajeSincronizacionComputrabajo = signal<string | null>(null);
+
   empresa = '';
   puesto = '';
   portal = '';
@@ -362,6 +365,29 @@ export class Postulaciones implements OnInit {
       error: (err) => {
         this.recalculando.set(false);
         this.mensajeRecalculo.set(err.error?.error || this.translate.instant('postulaciones.errorRecalcular'));
+      },
+    });
+  }
+
+  sincronizarComputrabajo(): void {
+    this.sincronizandoComputrabajo.set(true);
+    this.mensajeSincronizacionComputrabajo.set(null);
+    this.postulacionesService.sincronizarComputrabajo().subscribe({
+      next: (res) => {
+        this.sincronizandoComputrabajo.set(false);
+        this.mensajeSincronizacionComputrabajo.set(
+          this.translate.instant('postulaciones.sincronizacionComputrabajoLista', {
+            actualizadas: res.actualizadas,
+            sinMatch: res.sinMatch,
+          })
+        );
+        this.cargar();
+      },
+      error: (err) => {
+        this.sincronizandoComputrabajo.set(false);
+        this.mensajeSincronizacionComputrabajo.set(
+          err.error?.error || this.translate.instant('postulaciones.errorSincronizacionComputrabajo')
+        );
       },
     });
   }

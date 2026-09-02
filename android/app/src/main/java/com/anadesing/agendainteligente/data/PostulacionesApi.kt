@@ -29,6 +29,9 @@ interface PostulacionesApi {
     @POST("postulaciones/recalcular-compatibilidad")
     suspend fun recalcularCompatibilidad(): RecalcularCompatibilidadResponse
 
+    @POST("postulaciones/sincronizar-computrabajo")
+    suspend fun sincronizarComputrabajo(): SincronizarComputrabajoResponse
+
     @GET("mails-revision")
     suspend fun listarMailsRevision(): List<MailRevision>
 

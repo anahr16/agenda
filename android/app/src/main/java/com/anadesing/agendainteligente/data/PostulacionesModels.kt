@@ -45,6 +45,8 @@ data class PostulacionesStats(
 
 data class RecalcularCompatibilidadResponse(val actualizadas: Int)
 
+data class SincronizarComputrabajoResponse(val actualizadas: Int, val sinMatch: Int)
+
 /** Mail que no matcheo ningun portal conocido -- bandeja de revision (postulaciones_emails_revision). */
 data class MailRevision(
     val id: Int,

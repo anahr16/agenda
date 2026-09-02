@@ -136,6 +136,8 @@
     "subtitulo": "Seguimiento de tu búsqueda laboral",
     "recalculando": "Recalculando…",
     "recalcularCompatibilidad": "Recalcular compatibilidad",
+    "sincronizandoComputrabajo": "Sincronizando…",
+    "sincronizarComputrabajo": "Traer links de Computrabajo",
     "nuevaPostulacion": "Nueva postulación",
     "campo": {
       "empresa": "Empresa",
@@ -176,6 +178,8 @@
     "errorGuardar": "No se pudo guardar la postulación.",
     "errorRecalcular": "No se pudo recalcular la compatibilidad.",
     "recalculoListo": "Listo, se recalcularon {{cantidad}} postulación(es).",
+    "errorSincronizacionComputrabajo": "No se pudo sincronizar con Computrabajo.",
+    "sincronizacionComputrabajoLista": "Listo: {{actualizadas}} postulación(es) actualizadas, {{sinMatch}} sin encontrar en Computrabajo.",
     "pctCompatibilidad": "{{pct}}% compatibilidad",
     "pctProbLlamada": "{{pct}}% prob. llamada",
     "probLlamadaTitle": "Estimación heurística en base a tus datos, no una garantía",

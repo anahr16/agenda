@@ -1,7 +1,9 @@
 // Recalcula compatibilidad_oferta/compatibilidad_razon para todas las
-// postulaciones que tienen descripcion cargada. Correr despues de editar
-// perfil.txt, o para rellenar postulaciones viejas creadas antes de este
-// modulo (ver readme.md).
+// postulaciones que tienen descripcion cargada. Antes, intenta traer la
+// descripcion de las que tienen link pero no descripcion todavia
+// (jobPageScraper.js). Correr despues de editar perfil.txt, o para
+// rellenar postulaciones viejas creadas antes de este modulo (ver
+// readme.md).
 //
 // Uso (desde backend/): node recalcularCompatibilidad.js
 
@@ -9,6 +11,7 @@ require('dotenv').config();
 const db = require('./db');
 const { leerPerfil } = require('./perfil');
 const { calcularCompatibilidad } = require('./compatibilidadOferta');
+const { obtenerDescripcion } = require('./jobPageScraper');
 const { obtenerIdDueña } = require('./ownerUsuario');
 
 async function main() {
@@ -21,6 +24,21 @@ async function main() {
   if (!perfil) {
     console.error('No hay perfil_cv cargado para la cuenta dueña (ver Configuracion) -- nada con que comparar.');
     process.exit(1);
+  }
+
+  const sinDescripcion = db
+    .prepare("SELECT id, empresa, puesto, link FROM postulaciones WHERE usuario_id = ? AND link IS NOT NULL AND descripcion IS NULL")
+    .all(usuarioId);
+  for (const p of sinDescripcion) {
+    try {
+      const descripcion = await obtenerDescripcion(p.link);
+      if (descripcion) {
+        db.prepare('UPDATE postulaciones SET descripcion = ? WHERE id = ?').run(descripcion, p.id);
+        console.log(`- ${p.empresa} (${p.puesto}): descripcion traida (${descripcion.length} caracteres)`);
+      }
+    } catch (err) {
+      console.error(`- ${p.empresa} (${p.puesto}): no se pudo traer la descripcion - ${err.message}`);
+    }
   }
 
   const postulaciones = db

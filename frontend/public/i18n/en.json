@@ -178,6 +178,7 @@
     "errorGuardar": "Couldn't save the application.",
     "errorRecalcular": "Couldn't recalculate the match.",
     "recalculoListo": "Done, {{cantidad}} application(s) recalculated.",
+    "descripcionesTraidas": "Fetched {{cantidad}} new description(s) from the original posting.",
     "errorSincronizacionComputrabajo": "Couldn't sync with Computrabajo.",
     "sincronizacionComputrabajoLista": "Done: {{actualizadas}} application(s) updated, {{sinMatch}} not found on Computrabajo.",
     "pctCompatibilidad": "{{pct}}% match",

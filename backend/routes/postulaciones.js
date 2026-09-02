@@ -4,6 +4,7 @@ const { calcularProbabilidad } = require('../probabilidadLlamada');
 const { calcularCompatibilidad } = require('../compatibilidadOferta');
 const { leerPerfil } = require('../perfil');
 const { sincronizar: sincronizarComputrabajo } = require('../computrabajoSync');
+const { obtenerDescripcion } = require('../jobPageScraper');
 
 const router = express.Router();
 
@@ -36,12 +37,33 @@ router.get('/', (req, res) => {
 // Recalcula compatibilidad_oferta/compatibilidad_razon para todas las
 // postulaciones con descripcion cargada -- lo mismo que hace
 // recalcularCompatibilidad.js por consola, pero como boton en la app (util
-// despues de editar perfil.txt, o para las que quedaron sin calcular).
+// despues de editar perfil.txt, o para las que quedaron sin calcular). Antes
+// de recalcular, tambien intenta traer la descripcion de las que tienen
+// link pero todavia no la tienen (jobPageScraper.js) -- asi las
+// postulaciones de LinkedIn/Chiletrabajos que llegaron sin descripcion
+// (o que fallaron al traerla en su momento) se completan solas.
 router.post('/recalcular-compatibilidad', async (req, res) => {
   const perfil = leerPerfil(req.usuario.id);
   if (!perfil) {
     return res.status(400).json({ error: 'Todavía no cargaste tu CV/perfil en Configuración.' });
   }
+
+  const sinDescripcion = db
+    .prepare("SELECT id, link FROM postulaciones WHERE usuario_id = ? AND link IS NOT NULL AND descripcion IS NULL")
+    .all(req.usuario.id);
+  let descripcionesTraidas = 0;
+  for (const p of sinDescripcion) {
+    try {
+      const descripcion = await obtenerDescripcion(p.link);
+      if (descripcion) {
+        db.prepare('UPDATE postulaciones SET descripcion = ? WHERE id = ?').run(descripcion, p.id);
+        descripcionesTraidas++;
+      }
+    } catch (err) {
+      console.warn(`[postulaciones] No se pudo traer la descripcion de ${p.link}:`, err.message);
+    }
+  }
+
   const postulaciones = db
     .prepare(
       "SELECT id, descripcion FROM postulaciones WHERE usuario_id = ? AND descripcion IS NOT NULL AND trim(descripcion) != ''"
@@ -55,7 +77,7 @@ router.post('/recalcular-compatibilidad', async (req, res) => {
       p.id
     );
   }
-  res.json({ actualizadas: postulaciones.length });
+  res.json({ actualizadas: postulaciones.length, descripcionesTraidas });
 });
 
 // Trae los links reales de "mis postulaciones" de Computrabajo y les rellena

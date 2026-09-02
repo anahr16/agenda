@@ -320,7 +320,8 @@ class PostulacionesViewModel(private val repository: PostulacionesRepository) : 
         viewModelScope.launch {
             try {
                 val res = repository.recalcularCompatibilidad()
-                mensajeRecalculo = "Listo, se recalcularon ${res.actualizadas} postulación(es)."
+                val extra = if (res.descripcionesTraidas > 0) " Se trajeron ${res.descripcionesTraidas} descripción(es) nuevas del aviso original." else ""
+                mensajeRecalculo = "Listo, se recalcularon ${res.actualizadas} postulación(es).$extra"
                 cargar()
             } catch (e: Exception) {
                 mensajeRecalculo = "No se pudo recalcular la compatibilidad."

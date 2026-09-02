@@ -178,6 +178,7 @@
     "errorGuardar": "No se pudo guardar la postulación.",
     "errorRecalcular": "No se pudo recalcular la compatibilidad.",
     "recalculoListo": "Listo, se recalcularon {{cantidad}} postulación(es).",
+    "descripcionesTraidas": "Se trajeron {{cantidad}} descripción(es) nuevas del aviso original.",
     "errorSincronizacionComputrabajo": "No se pudo sincronizar con Computrabajo.",
     "sincronizacionComputrabajoLista": "Listo: {{actualizadas}} postulación(es) actualizadas, {{sinMatch}} sin encontrar en Computrabajo.",
     "pctCompatibilidad": "{{pct}}% compatibilidad",

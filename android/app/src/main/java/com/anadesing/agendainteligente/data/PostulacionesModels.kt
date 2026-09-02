@@ -43,7 +43,7 @@ data class PostulacionesStats(
     val porPortal: List<PortalCount>,
 )
 
-data class RecalcularCompatibilidadResponse(val actualizadas: Int)
+data class RecalcularCompatibilidadResponse(val actualizadas: Int, val descripcionesTraidas: Int = 0)
 
 data class SincronizarComputrabajoResponse(val actualizadas: Int, val sinMatch: Int)
 

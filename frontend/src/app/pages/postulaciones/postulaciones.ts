@@ -359,7 +359,11 @@ export class Postulaciones implements OnInit {
     this.postulacionesService.recalcularCompatibilidad().subscribe({
       next: (res) => {
         this.recalculando.set(false);
-        this.mensajeRecalculo.set(this.translate.instant('postulaciones.recalculoListo', { cantidad: res.actualizadas }));
+        const base = this.translate.instant('postulaciones.recalculoListo', { cantidad: res.actualizadas });
+        const extra = res.descripcionesTraidas
+          ? ' ' + this.translate.instant('postulaciones.descripcionesTraidas', { cantidad: res.descripcionesTraidas })
+          : '';
+        this.mensajeRecalculo.set(base + extra);
         this.cargar();
       },
       error: (err) => {

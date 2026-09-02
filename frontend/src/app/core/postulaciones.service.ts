@@ -78,7 +78,10 @@ export class PostulacionesService {
   }
 
   recalcularCompatibilidad() {
-    return this.http.post<{ actualizadas: number }>(`${this.base}/recalcular-compatibilidad`, {});
+    return this.http.post<{ actualizadas: number; descripcionesTraidas: number }>(
+      `${this.base}/recalcular-compatibilidad`,
+      {}
+    );
   }
 
   sincronizarComputrabajo() {

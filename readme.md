@@ -770,6 +770,46 @@ Google.
   ritmo, y ahí valdría la pena evaluar si tiene sentido seguir por este
   camino en vez de seguir reintentando.
 
+### LinkedIn: descripción automática del aviso (2026-09-02)
+
+A diferencia de Computrabajo, acá no hizo falta nada de sesión/cookies ni
+riesgo para la cuenta -- **el mail de confirmación de LinkedIn ya trae el
+link real al aviso** (`jobPageScraper.js` lo documentaba desde antes), y
+el aviso público (`linkedin.com/jobs/view/{id}/`) **no exige login**:
+LinkedIn lo sirve así a propósito para que Google lo indexe. Se había
+asumido lo contrario ("LinkedIn exige login para ver el aviso completo")
+y no era cierto -- probado con 4+ avisos reales de la cuenta.
+
+- **El link que trae el mail no es el que hay que pedir directo**: viene
+  con parámetros de tracking y un token de login de un solo uso
+  (`otpToken`) que, pedido sin la sesión del navegador de la usuaria,
+  redirige a una pantalla de login en vez de mostrar el aviso. La URL
+  pública real es más simple: `https://www.linkedin.com/jobs/view/{id}/`,
+  sin ninguno de esos parámetros -- confirmado que **sí** funciona sin
+  sesión, extrayendo el ID del link del mail.
+- **`backend/jobPageScraper.js`**: nueva entrada para `linkedin.com` en
+  `SCRAPERS`, con un `urlParaFetch(url)` (nuevo, opcional por scraper)
+  que reconstruye esa URL pública antes de pedirla -- `obtenerDescripcion()`
+  ahora usa esa función si el scraper la define, en vez de pedir siempre
+  la URL tal cual llegó. Selector: `.show-more-less-html__markup`, uniendo
+  el texto de cada `p`/`li` (mismo motivo que Computrabajo: sin esto el
+  texto sale pegado, ej. "Copec!Tu misión").
+- **`POST /postulaciones/recalcular-compatibilidad`** (mismo botón que ya
+  existía) y su equivalente por consola `recalcularCompatibilidad.js`
+  ahora, antes de recalcular, intentan traerle la descripción a cualquier
+  postulación con `link` pero sin `descripcion` todavía -- no es algo
+  exclusivo de LinkedIn, sirve para cualquier portal con scraper en
+  `jobPageScraper.js` que haya quedado sin descripción (ej. si falló el
+  intento automático al llegar el mail). Se corrió una vez sobre datos
+  reales: completó las 5 postulaciones de LinkedIn que estaban pendientes
+  sin tocar nada de la cuenta de LinkedIn de la usuaria.
+- **No hace falta un botón nuevo ni conectar cuenta**: como el link ya
+  viene del mail y el aviso es público, esto queda automático para
+  siempre desde `emailSync.js` (que ya llama `obtenerDescripcion()` al
+  detectar una postulación nueva) -- el backfill de arriba es solo para
+  las postulaciones viejas que quedaron sin descripción antes de este
+  cambio.
+
 ### Agenda
 
 Pantalla de calendario (`frontend/src/app/pages/agenda/`) con dos vistas,

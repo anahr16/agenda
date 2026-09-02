@@ -244,4 +244,49 @@ if (!columnasUsuarios.some((columna) => columna.name === 'computrabajo_cookies_e
   db.exec('ALTER TABLE usuarios ADD COLUMN computrabajo_cookies_enc TEXT');
 }
 
+// Migracion: suscripcion -- prueba gratuita + estado pago, unificado entre
+// MercadoPago (web) y Google Play (Android). No se guarda un "estado" como
+// texto aparte: se deriva siempre comparando datetime('now') contra estas
+// dos fechas (ver suscripcion.js), evitando que un enum quede desincronizado
+// de la fecha real en algun lado.
+const TRIAL_DIAS_MIGRACION = Number(process.env.TRIAL_DIAS || 14);
+if (!columnasUsuarios.some((columna) => columna.name === 'fecha_fin_prueba')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN fecha_fin_prueba TEXT');
+  // Backfill: cuentas que ya existian antes de este cambio arrancan con una
+  // prueba nueva y completa desde HOY, no desde su fecha de alta original --
+  // lo contrario las dejaria bloqueadas de golpe, sin aviso, el dia que se
+  // despliegue este codigo (a la cuenta dueña no le afecta, ver es_owner).
+  db.exec(`UPDATE usuarios SET fecha_fin_prueba = datetime('now', '+${TRIAL_DIAS_MIGRACION} days') WHERE fecha_fin_prueba IS NULL`);
+}
+if (!columnasUsuarios.some((columna) => columna.name === 'suscripcion_vence')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN suscripcion_vence TEXT');
+}
+if (!columnasUsuarios.some((columna) => columna.name === 'suscripcion_fuente')) {
+  db.exec("ALTER TABLE usuarios ADD COLUMN suscripcion_fuente TEXT"); // 'mercadopago' | 'google_play'
+}
+if (!columnasUsuarios.some((columna) => columna.name === 'mercadopago_preapproval_id')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN mercadopago_preapproval_id TEXT');
+}
+if (!columnasUsuarios.some((columna) => columna.name === 'google_play_purchase_token')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN google_play_purchase_token TEXT');
+}
+
+// Log de auditoria de eventos de suscripcion (webhooks de MercadoPago y
+// notificaciones de Google Play) -- mismo espiritu que actividad_postulaciones.
+// Sin constraint de dedup: la idempotencia real es que cada webhook siempre
+// vuelve a consultar el estado autoritativo al proveedor en vez de confiar
+// en los numeros que trae el aviso, asi que procesar el mismo evento dos
+// veces da el mismo resultado. Esta tabla es solo para poder ver que paso.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS suscripcion_eventos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER,
+    fuente TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    referencia_externa TEXT,
+    payload TEXT,
+    procesado_en TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 module.exports = db;

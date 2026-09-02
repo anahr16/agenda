@@ -16,8 +16,10 @@ const mailsRevisionRouter = require('./routes/mailsRevision');
 const eventosRouter = require('./routes/eventos');
 const annieRouter = require('./routes/annie');
 const recordatoriosVozRouter = require('./routes/recordatoriosVoz');
+const suscripcionRouter = require('./routes/suscripcion');
 const requireAuth = require('./middleware/auth');
 const requireOwner = require('./middleware/requireOwner');
+const requireSuscripcionActiva = require('./middleware/requireSuscripcionActiva');
 const iniciarRecordatorios = require('./recordatorios');
 const iniciarSincronizacionEmails = require('./emailSync');
 const iniciarRecordatoriosPostulaciones = require('./recordatoriosPostulaciones');
@@ -27,9 +29,11 @@ const iniciarResumenSemanal = require('./resumenSemanal');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4200';
+// Lista separada por comas -- hoy suele ser un unico origen, pero permite
+// sumar uno de dev aparte del de produccion sin tener que tocar codigo.
+const origenesPermitidos = (process.env.FRONTEND_URL || 'http://localhost:4200').split(',').map((o) => o.trim());
 
-app.use(cors({ origin: FRONTEND_URL }));
+app.use(cors({ origin: origenesPermitidos }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -44,11 +48,14 @@ app.use('/auth', authRouter);
 // Ana a cualquier cuenta publica nueva.
 app.use('/clientes', requireAuth, requireOwner, clientesRouter);
 app.use('/citas', requireAuth, requireOwner, citasRouter);
-app.use('/postulaciones', requireAuth, postulacionesRouter);
+// /suscripcion sin requireSuscripcionActiva a proposito -- tiene que seguir
+// accesible mientras la cuenta esta bloqueada, para poder ver/pagar.
+app.use('/suscripcion', requireAuth, suscripcionRouter);
+app.use('/postulaciones', requireAuth, requireSuscripcionActiva, postulacionesRouter);
 app.use('/mails-revision', requireAuth, mailsRevisionRouter);
-app.use('/eventos', requireAuth, eventosRouter);
-app.use('/annie', requireAuth, annieRouter);
-app.use('/recordatorios-voz', requireAuth, recordatoriosVozRouter);
+app.use('/eventos', requireAuth, requireSuscripcionActiva, eventosRouter);
+app.use('/annie', requireAuth, requireSuscripcionActiva, annieRouter);
+app.use('/recordatorios-voz', requireAuth, requireSuscripcionActiva, recordatoriosVozRouter);
 
 // Host explicito (0.0.0.0, todas las interfaces) -- sin esto, en algunas
 // maquinas Node termina escuchando solo en el loopback IPv6 (::1), y la app

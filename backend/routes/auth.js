@@ -7,6 +7,7 @@ const multer = require('multer');
 const db = require('../db');
 const requireAuth = require('../middleware/auth');
 const { encriptar } = require('../encriptado');
+const { TRIAL_DIAS } = require('../suscripcion');
 
 const router = express.Router();
 
@@ -49,7 +50,7 @@ router.post('/register', (req, res) => {
   }
   const passwordHash = bcrypt.hashSync(password, 10);
   const resultado = db
-    .prepare('INSERT INTO usuarios (email, password_hash) VALUES (?, ?)')
+    .prepare(`INSERT INTO usuarios (email, password_hash, fecha_fin_prueba) VALUES (?, ?, datetime('now', '+${TRIAL_DIAS} days'))`)
     .run(email, passwordHash);
   const usuario = db.prepare('SELECT id, email, creado_en FROM usuarios WHERE id = ?').get(resultado.lastInsertRowid);
   res.status(201).json(usuario);

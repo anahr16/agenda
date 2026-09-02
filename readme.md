@@ -2427,3 +2427,129 @@ pendientes:
   que haya hosting real, y que no existe todavía un flujo de borrado de
   cuenta desde la app (Play generalmente lo espera).
 - **Cuestionario de clasificación de contenido.**
+
+## Suscripción paga (SaaS, en curso desde 2026-09-02)
+
+Pedido de la usuaria: convertir la app en un producto real -- cualquiera se
+registra, prueba gratis 14 días, y después paga **$10.000 CLP/mes** para
+seguir usándola (web y Android, sin nivel gratis limitado: al vencer la
+prueba, bloqueo total hasta pagar). Pago web con MercadoPago (suscripción
+recurrente), pago Android con Google Play Billing *dentro* de la app
+(decisión explícita de la usuaria, aceptando la comisión de Google a cambio
+de no depender de un solo canal). Un solo estado de suscripción por cuenta,
+reconocido desde cualquiera de los dos medios de pago.
+
+Plan completo (fases, decisiones de diseño con motivo, qué es código vs qué
+tiene que resolver la usuaria) en
+`/home/ana/.claude/plans/sharded-shimmying-cerf.md` -- éste es el resumen
+de qué se hizo realmente, actualizado a medida que avanza cada fase.
+
+### Fase 0 — Hosting real (COMPLETA)
+
+Antes esto vivía solo en la PC de Ana (IP de LAN, ver "Publicación en
+Google Play" arriba) -- eso se resolvió acá:
+
+- **Proyecto GCP**: se reusó `turnero-ec3cd` (el mismo que ya usaba
+  Firebase para push) en vez de crear uno nuevo, con la cuenta personal de
+  la usuaria (`anahrnandz96@gmail.com`) -- **importante**: la cuenta activa
+  de `gcloud` en este entorno estaba en la cuenta del trabajo de la usuaria
+  al arrancar esta fase; se cambió explícitamente antes de crear nada, para
+  no mezclar el proyecto personal con la cuenta laboral.
+- **VM**: `agenda-backend`, Compute Engine, Ubuntu 24.04 LTS, `e2-small`,
+  zona `southamerica-west1-a` (Santiago -- mejor latencia para usuarios en
+  Chile que el nivel gratuito de GCP, que no existe en una región
+  chilena). IP externa **estática** `34.176.30.239` (reservada aparte, no
+  efímera). Firewall: solo `80`/`443` abiertos al mundo; SSH únicamente por
+  túnel IAP de GCP (`gcloud compute ssh ... --tunnel-through-iap`), puerto
+  22 nunca expuesto directo.
+- **Dominio**: `agendainteligente.cl` no se pudo (los `.cl` son dominios de
+  país, Google/Cloud Domains no los maneja -- hay que sacarlos directo en
+  NIC Chile con RUT/ClaveÚnica, eso queda para la usuaria si lo quiere más
+  adelante). `agendainteligente.app` se buscó disponible pero se lo ganó
+  otra persona en el rato entre la búsqueda y el registro (dato curioso:
+  los dominios pueden dejar de estar disponibles muy rápido). Se registró
+  **`agendainteligente.dev`** en su lugar (12 USD/año, vía `gcloud domains
+  registrations register`, con Cloud DNS como backend de DNS) -- `.dev` (
+  igual que `.app`) fuerza HTTPS siempre por HSTS preload, así que no hay
+  forma de que el sitio quede sirviendo HTTP plano por error. Zona Cloud
+  DNS `agendainteligente-dev` con un registro A apuntando a la IP estática.
+- **Software en la VM**: Node 24.x LTS (NodeSource), `git clone` del repo
+  en `/opt/agenda`. `better-sqlite3` y Puppeteer necesitaron aprobar sus
+  install scripts a mano (`npm install-scripts approve ...` -- gate nuevo
+  de npm que bloquea scripts de instalación por default) y Puppeteer
+  además necesitó un paquete de librerías del sistema que Ubuntu server no
+  trae por default (`libnss3`, `libnspr4`, `libatk-bridge2.0-0t64`, etc. --
+  sin esto Chromium no arranca, error `libnspr4.so: cannot open shared
+  object file`). Verificado en vivo: Chromium headless efectivamente
+  levanta y navega en la VM (necesario para el scraper de Computrabajo).
+- **`systemd`**: unidad `agenda-backend.service` (`ExecStart=node
+  index.js`, `Restart=on-failure`, `EnvironmentFile=/opt/agenda/backend/.env`),
+  arranca solo en cada boot.
+- **Caddy**: reverse proxy a `localhost:4000`, HTTPS automático (Let's
+  Encrypt) apenas el DNS del dominio resolvió -- el primer intento falló
+  porque el DNS todavía no había propagado en ese momento exacto (Caddy
+  cayó a un certificado de *staging*, no confiable, hasta el reintento
+  siguiente con DNS ya resuelto). `Caddyfile` en `/etc/caddy/Caddyfile` en
+  la VM (no versionado en el repo).
+- **Backups**: snapshot diario automático del disco de la VM (política de
+  GCP, 14 días de retención) -- story de backup razonable para una base
+  SQLite de este tamaño.
+- **Secretos y datos reales**: `.env`, `firebase-service-account.json`,
+  `turnero.sqlite` y `uploads/` de la usuaria se copiaron a la VM por
+  `scp` (nunca por git, siguen gitignored) y quedaron con permisos `600`.
+  De acá en más la copia de la VM es la real.
+- **Verificado en vivo**: `https://agendainteligente.dev/health` responde
+  desde internet, con certificado HTTPS válido, y `/auth/login` devuelve
+  el error esperado ante credenciales inválidas -- toda la app tal como
+  estaba antes de esta tarea sigue funcionando igual, ahora en un servidor
+  real.
+
+Redeploy en cada fase siguiente: `git pull && npm ci && sudo systemctl
+restart agenda-backend` en la VM (backend); build + copia de `dist/` para
+el frontend (todavía no desplegado, ver fase 3 del plan).
+
+### Fase 1 — Base de datos, prueba/suscripción, bloqueo (backend listo, sin desplegar ni commitear todavía)
+
+- **`backend/db.js`**: nuevas columnas en `usuarios` (mismo patrón
+  idempotente `PRAGMA table_info` + `ALTER TABLE` que ya usa el archivo) --
+  `fecha_fin_prueba`, `suscripcion_vence`, `suscripcion_fuente`,
+  `mercadopago_preapproval_id`, `google_play_purchase_token`. Backfill a
+  14 días desde hoy para cuentas que ya existían (si no, quedarían
+  bloqueadas de golpe el día del deploy). Tabla nueva `suscripcion_eventos`
+  (log de auditoría de webhooks, mismo espíritu que
+  `actividad_postulaciones`).
+- **`backend/suscripcion.js`** (nuevo, mismo molde que `annieLimite.js`):
+  `estadoDe(usuarioId)` calcula "permitido" comparando `datetime('now')`
+  de SQLite contra las dos fechas -- la cuenta dueña (`es_owner`) nunca se
+  bloquea. `TRIAL_DIAS` (14) y `PRECIO_CLP` (10000) configurables por
+  variable de entorno.
+- **`backend/middleware/requireSuscripcionActiva.js`** (nuevo, calcado de
+  `requireOwner.js`): 402 + `{ suscripcion_requerida: true }` si la cuenta
+  no tiene prueba ni suscripción vigente.
+- **`backend/routes/suscripcion.js`** (nuevo): `GET /suscripcion` devuelve
+  el estado completo -- sin el gate de arriba a propósito, tiene que seguir
+  accesible mientras la cuenta está bloqueada (para poder pagar).
+- **`backend/index.js`**: `requireSuscripcionActiva` montado en
+  `/postulaciones`, `/eventos`, `/annie`, `/recordatorios-voz` (no en
+  `/mails-revision`, fuera del alcance de esta fase). De paso,
+  `FRONTEND_URL` ahora acepta una lista separada por comas para CORS (antes
+  un solo origen).
+- **`backend/routes/auth.js`**: `POST /register` ahora setea
+  `fecha_fin_prueba` a `TRIAL_DIAS` días desde el alta.
+- **Probado en frío** (sin levantar el server, por pedido de la usuaria):
+  los 4 escenarios -- cuenta dueña, prueba vigente, prueba vencida sin
+  pagar (bloqueada), prueba vencida pero con `suscripcion_vence` futuro
+  (permitida de nuevo) -- dan el resultado esperado, probado directo contra
+  `estadoDe()`.
+- **Pendiente en esta fase**: probar con el server real corriendo
+  (`npm run dev`, no lo corrió el asistente a propósito), desplegar a la
+  VM, y commitear -- quedó cortado ahí por necesidad de reiniciar la
+  consola.
+
+### Siguiente (fases 2-5 del plan, sin arrancar)
+
+MercadoPago (checkout + webhook, backend), frontend web (modal de pago +
+pestaña de Configuración), Google Play Billing en Android (cliente +
+verificación server-side vía Google Play Developer API + notificaciones en
+tiempo real vía Pub/Sub). Detalle completo de cada una en el archivo de
+plan mencionado arriba.

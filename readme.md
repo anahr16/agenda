@@ -2450,6 +2450,34 @@ Quedan pendientes (ninguno se resolvió en este trabajo):
   cuenta desde la app (Play generalmente lo espera).
 - **Cuestionario de clasificación de contenido.**
 
+### Fase 3 — Modal de pago del frontend (2026-09-03)
+
+`suscripcion.service.ts` + `shared/paywall/` (modal), calcados del molde
+que ya planteaba el plan (`.login-card` + backdrop de `.sidebar-backdrop`
+sin la restricción a mobile). El interceptor lo prende ante cualquier 402
+con `suscripcion_requerida`. **Diferencia con el plan original**: el modal
+se puede cerrar ("Ahora no") -- con el cambio de "Postulaciones siempre
+paga" (ver más abajo) ya no tiene sentido un bloqueo total de toda la app,
+solo se interrumpe cuando de verdad se pidió algo de Postulaciones.
+
+El polling de fondo de Postulaciones en `Shell` (corre en cualquier
+pantalla) se marca `silencioso` (nuevo `HttpContext` `SILENCIAR_PAYWALL`)
+para no disparar el modal solo por tener la app abierta sin haber entrado
+a Postulaciones -- si no, cualquier cuenta en prueba vería el paywall
+aparecer solo cada 60s (el intervalo de ese polling).
+
+Pestaña "Suscripción" nueva en Configuración. `GET /suscripcion` suma
+`postulaciones_permitido` (calculado en el backend con
+`tienePagoActivo()`) para que el frontend no compare fechas contra su
+propio reloj -- evita el clásico bug de desfasar con la hora del servidor.
+
+**Verificado**: build de producción sin errores de TypeScript, desplegado
+a la VM, `GET /suscripcion` devuelve `postulaciones_permitido` correcto
+para la cuenta de prueba real. **No verificado**: el flujo completo en un
+navegador real (abrir el modal, tocar "Suscribirme ahora", ver el checkout)
+-- no hay forma de manejar un navegador desde este entorno: falta que
+alguien lo prueba a mano.
+
 ## Suscripción paga (SaaS, en curso desde 2026-09-02)
 
 Pedido de la usuaria: convertir la app en un producto real -- cualquiera se

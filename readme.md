@@ -2478,6 +2478,14 @@ navegador real (abrir el modal, tocar "Suscribirme ahora", ver el checkout)
 -- no hay forma de manejar un navegador desde este entorno: falta que
 alguien lo prueba a mano.
 
+### Ajustes post-lanzamiento (2026-09-03)
+
+- **Cupo diario de Annie bajado de 40 a 20** (`ANNIE_LIMITE_CHAT_DIARIO`/
+  `ANNIE_LIMITE_TTS_DIARIO` en `.env`, sin tocar código).
+- **La cuenta dueña ya no tiene límite de Annie** (`annieLimite.js`,
+  `esOwner()`) -- hasta ahora el cupo aplicaba por igual a todas las
+  cuentas, incluida la de Ana.
+
 ## Suscripción paga (SaaS, en curso desde 2026-09-02)
 
 Pedido de la usuaria: convertir la app en un producto real -- cualquiera se

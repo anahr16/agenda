@@ -12,6 +12,7 @@ const { calcularCompatibilidad } = require('./compatibilidadOferta');
 const { leerPerfil } = require('./perfil');
 const { getFirebaseApp, avisoFirebaseNoConfigurado } = require('./firebaseApp');
 const { obtenerIdDueña } = require('./ownerUsuario');
+const { desencriptar } = require('./encriptado');
 
 const DIAS_ATRAS = Number(process.env.EMAIL_SYNC_DIAS_ATRAS || 3);
 const ESTADOS_TERMINALES = ['rechazada', 'oferta'];
@@ -34,7 +35,11 @@ function textoDelMail(parsed) {
   return convert(parsed.html || '', OPCIONES_HTML_A_TEXTO);
 }
 
-function config() {
+// Mailbox fijo por variable de entorno -- el de la cuenta dueña, tal como
+// funcionaba antes de generalizar a per-cuenta (ver usuariosConCorreoConectado()
+// mas abajo). Se deja intacto a proposito, para no arriesgar el sync que ya
+// funciona en produccion.
+function configDueña() {
   const user = process.env.IMAP_USER;
   const pass = process.env.IMAP_APP_PASSWORD;
   if (!user || !pass) return null;
@@ -43,6 +48,25 @@ function config() {
     port: 993,
     secure: true,
     auth: { user, pass },
+    logger: false,
+  };
+}
+
+// Cuentas que conectaron su propio correo desde Configuracion (PUT
+// /auth/imap) -- cualquier cuenta, no solo la dueña. imap_password_enc esta
+// encriptada con la misma clave que usa Computrabajo (encriptado.js).
+function usuariosConCorreoConectado() {
+  return db
+    .prepare('SELECT id, imap_host, imap_email, imap_password_enc FROM usuarios WHERE imap_email IS NOT NULL AND imap_password_enc IS NOT NULL')
+    .all();
+}
+
+function configDe(usuario) {
+  return {
+    host: usuario.imap_host || 'imap.gmail.com',
+    port: 993,
+    secure: true,
+    auth: { user: usuario.imap_email, pass: desencriptar(usuario.imap_password_enc) },
     logger: false,
   };
 }
@@ -247,29 +271,12 @@ async function avisarMailNoReconocido(remitente, asunto, texto, fecha, usuarioId
 let avisoDesactivadoMostrado = false;
 let avisoSinDueñaMostrado = false;
 
-async function sincronizarEmails() {
-  const cfg = config();
-  if (!cfg) {
-    if (!avisoDesactivadoMostrado) {
-      console.warn(
-        '[email-sync] IMAP_USER/IMAP_APP_PASSWORD no configurados: sincronizacion de postulaciones por email desactivada.'
-      );
-      avisoDesactivadoMostrado = true;
-    }
-    return;
-  }
-
-  // Este mailbox es de UNA cuenta (la dueña), no de cualquiera que se
-  // registre en la app -- ver ownerUsuario.js.
-  const usuarioId = obtenerIdDueña();
-  if (!usuarioId) {
-    if (!avisoSinDueñaMostrado) {
-      console.warn('[email-sync] Ninguna cuenta marcada como es_owner: sincronizacion de postulaciones desactivada.');
-      avisoSinDueñaMostrado = true;
-    }
-    return;
-  }
-
+// Sincroniza UN buzon (cfg) contra las postulaciones de UNA cuenta
+// (usuarioId) -- se llama tanto para el mailbox fijo de la dueña como, en
+// un loop aparte, para cada cuenta que conecto su propio correo (ver
+// sincronizarEmails()). Separado en su propia funcion para no duplicar esta
+// logica entre ambos casos.
+async function sincronizarMailbox(cfg, usuarioId) {
   const client = new ImapFlow(cfg);
   await client.connect();
   try {
@@ -331,6 +338,45 @@ async function sincronizarEmails() {
     }
   } finally {
     await client.logout();
+  }
+}
+
+async function sincronizarEmails() {
+  const cfgDueña = configDueña();
+  if (!cfgDueña) {
+    if (!avisoDesactivadoMostrado) {
+      console.warn(
+        '[email-sync] IMAP_USER/IMAP_APP_PASSWORD no configurados: sincronizacion de la casilla de la dueña desactivada.'
+      );
+      avisoDesactivadoMostrado = true;
+    }
+  } else {
+    // Este mailbox es de UNA cuenta (la dueña), no de cualquiera que se
+    // registre en la app -- ver ownerUsuario.js.
+    const usuarioId = obtenerIdDueña();
+    if (!usuarioId) {
+      if (!avisoSinDueñaMostrado) {
+        console.warn('[email-sync] Ninguna cuenta marcada como es_owner: sincronizacion de esa casilla desactivada.');
+        avisoSinDueñaMostrado = true;
+      }
+    } else {
+      try {
+        await sincronizarMailbox(cfgDueña, usuarioId);
+      } catch (err) {
+        console.error('[email-sync] Error sincronizando la casilla de la dueña:', err.message);
+      }
+    }
+  }
+
+  // Cuentas publicas que conectaron su propio correo -- cada una se procesa
+  // aparte, un error en una (mal la contraseña, servidor caido) no debe
+  // frenar la sincronizacion del resto.
+  for (const usuario of usuariosConCorreoConectado()) {
+    try {
+      await sincronizarMailbox(configDe(usuario), usuario.id);
+    } catch (err) {
+      console.error(`[email-sync] Error sincronizando el correo de la cuenta ${usuario.id}:`, err.message);
+    }
   }
 }
 

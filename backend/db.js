@@ -289,4 +289,20 @@ db.exec(`
   );
 `);
 
+// Migracion: correo IMAP por cuenta (encriptado, mismo patron que
+// computrabajo_password_enc) -- generaliza la sincronizacion automatica de
+// postulaciones por email, antes fija a una sola casilla (IMAP_* en .env,
+// solo la cuenta dueña) via emailSync.js. imap_host queda editable por si
+// el proveedor no es de los que se auto-detectan por dominio (ver
+// imapHostDe() en emailSync.js).
+if (!columnasUsuarios.some((columna) => columna.name === 'imap_email')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN imap_email TEXT');
+}
+if (!columnasUsuarios.some((columna) => columna.name === 'imap_host')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN imap_host TEXT');
+}
+if (!columnasUsuarios.some((columna) => columna.name === 'imap_password_enc')) {
+  db.exec('ALTER TABLE usuarios ADD COLUMN imap_password_enc TEXT');
+}
+
 module.exports = db;

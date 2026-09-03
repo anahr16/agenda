@@ -83,7 +83,8 @@ router.get('/perfil', requireAuth, (req, res) => {
     .prepare(
       `SELECT id, nombre, email, foto_perfil, idioma, tema, notificaciones_activas, perfil_cv,
               computrabajo_email, (computrabajo_password_enc IS NOT NULL) AS computrabajo_conectado,
-              (computrabajo_cookies_enc IS NOT NULL) AS computrabajo_sesion_conectada
+              (computrabajo_cookies_enc IS NOT NULL) AS computrabajo_sesion_conectada,
+              imap_email, (imap_password_enc IS NOT NULL) AS imap_conectado
        FROM usuarios WHERE id = ?`
     )
     .get(req.usuario.id);
@@ -218,6 +219,58 @@ router.put('/computrabajo-cookies', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'cookies no es JSON válido' });
   }
   db.prepare('UPDATE usuarios SET computrabajo_cookies_enc = ? WHERE id = ?').run(encriptar(cookies), req.usuario.id);
+  res.json({ ok: true });
+});
+
+// Servidores IMAP de los proveedores mas comunes -- si el dominio del email
+// no esta acá, la usuaria tiene que escribir el host a mano (campo opcional
+// en el frontend). Generaliza emailSync.js, antes fijo a una sola casilla
+// (la dueña, por variable de entorno).
+const IMAP_HOST_POR_DOMINIO = {
+  'gmail.com': 'imap.gmail.com',
+  'googlemail.com': 'imap.gmail.com',
+  'outlook.com': 'outlook.office365.com',
+  'hotmail.com': 'outlook.office365.com',
+  'live.com': 'outlook.office365.com',
+  'msn.com': 'outlook.office365.com',
+  'yahoo.com': 'imap.mail.yahoo.com',
+  'ymail.com': 'imap.mail.yahoo.com',
+  'icloud.com': 'imap.mail.me.com',
+  'me.com': 'imap.mail.me.com',
+};
+
+function imapHostDe(email, hostManual) {
+  if (hostManual) return hostManual;
+  const dominio = email.split('@')[1]?.toLowerCase();
+  return IMAP_HOST_POR_DOMINIO[dominio] || null;
+}
+
+// Contraseña de aplicacion, no la contraseña real de la cuenta de correo --
+// se aclara en el frontend (con link a como generarla en Gmail/Outlook). Se
+// guarda encriptada, igual que computrabajo_password_enc. Ver emailSync.js
+// para como se usa (recorre todas las cuentas con imap_email cargado).
+router.put('/imap', requireAuth, (req, res) => {
+  const { email, password, host } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: 'email y password son obligatorios' });
+  }
+  const imapHost = imapHostDe(email, host);
+  if (!imapHost) {
+    return res.status(400).json({ error: 'No reconocemos el servidor IMAP de ese dominio -- especificalo a mano.' });
+  }
+  db.prepare('UPDATE usuarios SET imap_email = ?, imap_host = ?, imap_password_enc = ? WHERE id = ?').run(
+    email,
+    imapHost,
+    encriptar(password),
+    req.usuario.id
+  );
+  res.json({ ok: true });
+});
+
+router.delete('/imap', requireAuth, (req, res) => {
+  db.prepare('UPDATE usuarios SET imap_email = NULL, imap_host = NULL, imap_password_enc = NULL WHERE id = ?').run(
+    req.usuario.id
+  );
   res.json({ ok: true });
 });
 

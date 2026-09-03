@@ -18,6 +18,9 @@
     <button type="button" [class.active]="seccionActiva() === 'cv'" (click)="seccionActiva.set('cv')">
       {{ 'configuracion.perfilCv.titulo' | translate }}
     </button>
+    <button type="button" [class.active]="seccionActiva() === 'correo'" (click)="seccionActiva.set('correo')">
+      {{ 'configuracion.correo.titulo' | translate }}
+    </button>
     <button type="button" [class.active]="seccionActiva() === 'computrabajo'" (click)="seccionActiva.set('computrabajo')">
       {{ 'configuracion.computrabajo.titulo' | translate }}
     </button>
@@ -142,6 +145,40 @@
               <p class="mensaje">{{ mensajePerfilCv() }}</p>
             }
           </form>
+        </section>
+      }
+
+      @case ('correo') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.correo.titulo' | translate }}</h2>
+          <p class="config-desc">{{ 'configuracion.correo.descripcion' | translate }}</p>
+          <p class="config-desc">{{ 'configuracion.correo.avisoContrasena' | translate }}</p>
+
+          @if (perfil()?.imap_conectado) {
+            <p class="config-desc">{{ 'configuracion.correo.conectadoComo' | translate: { email: perfil()?.imap_email } }}</p>
+            <button type="button" class="btn-secundario" [disabled]="conectandoImap()" (click)="desconectarImap()">
+              {{ 'configuracion.correo.desconectar' | translate }}
+            </button>
+          } @else {
+            <form class="config-form" (ngSubmit)="conectarImap()">
+              <div class="fila-campo">
+                <label for="imapEmail">{{ 'configuracion.correo.email' | translate }}</label>
+                <input id="imapEmail" type="email" name="imapEmail" [(ngModel)]="imapEmail" required />
+              </div>
+              <div class="fila-campo">
+                <label for="imapPassword">{{ 'configuracion.correo.password' | translate }}</label>
+                <input id="imapPassword" type="password" name="imapPassword" [(ngModel)]="imapPassword" required autocomplete="off" />
+              </div>
+              <div class="fila-campo">
+                <label for="imapHost">{{ 'configuracion.correo.host' | translate }}</label>
+                <input id="imapHost" type="text" name="imapHost" [(ngModel)]="imapHost" [placeholder]="'configuracion.correo.hostPlaceholder' | translate" />
+              </div>
+              <button type="submit" class="btn-add" [disabled]="conectandoImap()">{{ 'configuracion.correo.conectar' | translate }}</button>
+            </form>
+          }
+          @if (mensajeImap()) {
+            <p class="mensaje">{{ mensajeImap() }}</p>
+          }
         </section>
       }
 

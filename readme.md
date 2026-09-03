@@ -2486,6 +2486,39 @@ alguien lo prueba a mano.
   `esOwner()`) -- hasta ahora el cupo aplicaba por igual a todas las
   cuentas, incluida la de Ana.
 
+### Correo por cuenta (2026-09-03, código completo, pendiente de probar con un mail real)
+
+Hasta ahora `emailSync.js` corría contra **una sola casilla fija** (`IMAP_*`
+en `.env`, siempre la cuenta dueña) -- para cualquier otra cuenta pública,
+la detección automática de postulaciones por mail simplemente no corría.
+Pedido explícito de la usuaria al darse cuenta de esto: generalizar a
+cualquier cuenta, con el mismo criterio que ya usa Computrabajo (contraseña
+de aplicación encriptada, no la contraseña real -- se evaluó OAuth con
+Gmail/Outlook primero, pero se descartó por la verificación de scopes
+restringidos de Google, que puede tardar semanas y no depende de nosotras).
+
+- **`usuarios.imap_email`/`imap_host`/`imap_password_enc`** (migración en
+  `db.js`, mismo patrón que `computrabajo_password_enc`).
+- **`PUT /auth/imap`** / **`DELETE /auth/imap`**: la usuaria carga su email
+  + contraseña de aplicación. El host IMAP se auto-detecta por el dominio
+  del email para los proveedores más comunes (Gmail, Outlook/Hotmail,
+  Yahoo, iCloud) -- si no lo reconoce, pide que lo escriba a mano.
+- **`emailSync.js` reescrito**: la lógica de sincronizar un buzón se separó
+  en `sincronizarMailbox(cfg, usuarioId)`, reusada tanto para la casilla
+  fija de la dueña (sin tocar, para no arriesgar lo que ya funciona en
+  producción) como en un loop nuevo sobre todas las cuentas que conectaron
+  su propio correo. Cada cuenta se sincroniza en su propio try/catch -- una
+  contraseña vencida o un servidor caído en una cuenta no frena la
+  sincronización del resto.
+- Nueva sección "Correo" en Configuración (calcada de Computrabajo), con
+  aviso explícito de que es una contraseña de aplicación, no la real.
+- **Probado en frío**: se conectó una cuenta de prueba con contraseña
+  inválida a propósito y se corrió `sincronizarEmails()` completo -- la
+  casilla real de la dueña sincronizó normal, la cuenta falsa falló su
+  conexión IMAP y quedó registrado el error sin interrumpir nada más.
+  **Falta probar con una casilla real de otra cuenta** para confirmar que
+  detecta postulaciones de verdad, no solo que no rompe nada.
+
 ## Suscripción paga (SaaS, en curso desde 2026-09-02)
 
 Pedido de la usuaria: convertir la app en un producto real -- cualquiera se

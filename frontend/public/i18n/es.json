@@ -244,6 +244,21 @@
       "exito": "CV actualizado.",
       "error": "No se pudo guardar el CV."
     },
+    "correo": {
+      "titulo": "Correo",
+      "descripcion": "Conecta tu correo para que la app detecte solas tus postulaciones nuevas (Computrabajo, LinkedIn, Chiletrabajos, Trabajando.cl) y sus cambios de estado.",
+      "avisoContrasena": "Usa una \"contraseña de aplicación\", no la contraseña real de tu cuenta -- Gmail y Outlook la piden si tienes verificación en dos pasos activada (búscalo en la configuración de seguridad de tu cuenta como \"contraseñas de aplicaciones\").",
+      "email": "Tu email",
+      "password": "Contraseña de aplicación",
+      "host": "Servidor IMAP (opcional)",
+      "hostPlaceholder": "Solo si no es Gmail, Outlook, Yahoo o iCloud",
+      "conectar": "Conectar",
+      "desconectar": "Desconectar",
+      "conectado": "Correo conectado.",
+      "conectadoComo": "Conectado como {{email}}.",
+      "desconectado": "Correo desconectado.",
+      "error": "No se pudo conectar el correo."
+    },
     "computrabajo": {
       "titulo": "Computrabajo",
       "descripcion": "Conecta tu cuenta para traer automáticamente el link y la descripción real de tus postulaciones (hoy el mail de confirmación de Computrabajo no la trae).",

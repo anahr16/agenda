@@ -12,6 +12,7 @@ export type SeccionConfig =
   | 'contrasena'
   | 'notificaciones'
   | 'cv'
+  | 'correo'
   | 'computrabajo'
   | 'suscripcion'
   | 'idioma'
@@ -42,6 +43,9 @@ export class Configuracion {
   computrabajoEmail = '';
   computrabajoPassword = '';
   computrabajoCookies = '';
+  imapEmail = '';
+  imapPassword = '';
+  imapHost = '';
 
   guardandoNombre = signal(false);
   mensajeNombre = signal<string | null>(null);
@@ -59,6 +63,8 @@ export class Configuracion {
   mensajeComputrabajo = signal<string | null>(null);
   guardandoCookiesComputrabajo = signal(false);
   mensajeCookiesComputrabajo = signal<string | null>(null);
+  conectandoImap = signal(false);
+  mensajeImap = signal<string | null>(null);
 
   constructor(
     private auth: AuthService,
@@ -245,6 +251,37 @@ export class Configuracion {
       },
       error: () => {
         this.conectandoComputrabajo.set(false);
+      },
+    });
+  }
+
+  conectarImap(): void {
+    this.conectandoImap.set(true);
+    this.mensajeImap.set(null);
+    this.perfilService.conectarImap(this.imapEmail, this.imapPassword, this.imapHost || undefined).subscribe({
+      next: () => {
+        this.imapPassword = '';
+        this.conectandoImap.set(false);
+        this.mensajeImap.set(this.translate.instant('configuracion.correo.conectado'));
+      },
+      error: (err) => {
+        this.conectandoImap.set(false);
+        this.mensajeImap.set(err.error?.error || this.translate.instant('configuracion.correo.error'));
+      },
+    });
+  }
+
+  desconectarImap(): void {
+    this.conectandoImap.set(true);
+    this.mensajeImap.set(null);
+    this.perfilService.desconectarImap().subscribe({
+      next: () => {
+        this.imapEmail = '';
+        this.conectandoImap.set(false);
+        this.mensajeImap.set(this.translate.instant('configuracion.correo.desconectado'));
+      },
+      error: () => {
+        this.conectandoImap.set(false);
       },
     });
   }

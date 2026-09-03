@@ -19,6 +19,8 @@ export interface Perfil {
   computrabajo_email: string | null;
   computrabajo_conectado: 0 | 1;
   computrabajo_sesion_conectada: 0 | 1;
+  imap_email: string | null;
+  imap_conectado: 0 | 1;
 }
 
 export interface DatosPerfil {
@@ -119,6 +121,24 @@ export class PerfilService {
         if (actual) {
           this.perfil.set({ ...actual, computrabajo_email: null, computrabajo_conectado: 0, computrabajo_sesion_conectada: 0 });
         }
+      })
+    );
+  }
+
+  conectarImap(email: string, password: string, host?: string) {
+    return this.http.put<{ ok: true }>(`${this.base}/imap`, { email, password, host: host || undefined }).pipe(
+      tap(() => {
+        const actual = this.perfil();
+        if (actual) this.perfil.set({ ...actual, imap_email: email, imap_conectado: 1 });
+      })
+    );
+  }
+
+  desconectarImap() {
+    return this.http.delete<{ ok: true }>(`${this.base}/imap`).pipe(
+      tap(() => {
+        const actual = this.perfil();
+        if (actual) this.perfil.set({ ...actual, imap_email: null, imap_conectado: 0 });
       })
     );
   }

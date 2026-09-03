@@ -244,6 +244,21 @@
       "exito": "CV updated.",
       "error": "Couldn't save the CV."
     },
+    "correo": {
+      "titulo": "Email",
+      "descripcion": "Connect your email so the app can detect your new applications (Computrabajo, LinkedIn, Chiletrabajos, Trabajando.cl) and their status changes automatically.",
+      "avisoContrasena": "Use an \"app password\", not your real account password -- Gmail and Outlook ask for one if you have two-step verification enabled (look for \"app passwords\" in your account's security settings).",
+      "email": "Your email",
+      "password": "App password",
+      "host": "IMAP server (optional)",
+      "hostPlaceholder": "Only if it's not Gmail, Outlook, Yahoo or iCloud",
+      "conectar": "Connect",
+      "desconectar": "Disconnect",
+      "conectado": "Email connected.",
+      "conectadoComo": "Connected as {{email}}.",
+      "desconectado": "Email disconnected.",
+      "error": "Couldn't connect the email."
+    },
     "computrabajo": {
       "titulo": "Computrabajo",
       "descripcion": "Connect your account to automatically fetch the real link and description of your applications (Computrabajo's confirmation email doesn't include it today).",

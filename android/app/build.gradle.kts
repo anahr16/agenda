@@ -49,10 +49,9 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.118:4000/\"")
         }
         release {
-            // TODO: cuando exista hosting real (ver readme.md), esta es la
-            // UNICA linea que hay que cambiar para que la app publicada deje
-            // de apuntar a la PC de casa.
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.118:4000/\"")
+            // Hosting real desde la Fase 0 de suscripcion (ver readme.md) --
+            // release ya no apunta a la PC de casa.
+            buildConfigField("String", "API_BASE_URL", "\"https://agendainteligente.dev/\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

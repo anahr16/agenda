@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Solo debug apunta a la IP de LAN (ver build.gradle.kts, API_BASE_URL);
+         release ya usa el dominio real con HTTPS, no necesita esto. -->
+    <application android:usesCleartextTraffic="true" />
+
+</manifest>

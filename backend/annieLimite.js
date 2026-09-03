@@ -11,16 +11,24 @@ function hoy() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function esOwner(usuarioId) {
+  return !!db.prepare('SELECT es_owner FROM usuarios WHERE id = ?').get(usuarioId)?.es_owner;
+}
+
 function fila(usuarioId) {
   db.prepare('INSERT OR IGNORE INTO annie_uso_diario (usuario_id, fecha) VALUES (?, ?)').run(usuarioId, hoy());
   return db.prepare('SELECT * FROM annie_uso_diario WHERE usuario_id = ? AND fecha = ?').get(usuarioId, hoy());
 }
 
+// La cuenta dueña nunca se limita -- mismo criterio que estadoDe() en
+// suscripcion.js (es_owner tampoco se bloquea por prueba/suscripcion).
 function puedeChatear(usuarioId) {
+  if (esOwner(usuarioId)) return true;
   return fila(usuarioId).chat_usados < LIMITE_CHAT_DIARIO;
 }
 
 function puedeHablar(usuarioId) {
+  if (esOwner(usuarioId)) return true;
   return fila(usuarioId).tts_usados < LIMITE_TTS_DIARIO;
 }
 

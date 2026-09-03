@@ -4,9 +4,18 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth.service';
 import { Idioma, PerfilService, Tema } from '../../core/perfil.service';
 import { PushService } from '../../core/push.service';
+import { SuscripcionService } from '../../core/suscripcion.service';
 import { environment } from '../../../environments/environment';
 
-export type SeccionConfig = 'perfil' | 'contrasena' | 'notificaciones' | 'cv' | 'computrabajo' | 'idioma' | 'apariencia';
+export type SeccionConfig =
+  | 'perfil'
+  | 'contrasena'
+  | 'notificaciones'
+  | 'cv'
+  | 'computrabajo'
+  | 'suscripcion'
+  | 'idioma'
+  | 'apariencia';
 
 @Component({
   selector: 'app-configuracion',
@@ -18,6 +27,9 @@ export type SeccionConfig = 'perfil' | 'contrasena' | 'notificaciones' | 'cv' | 
 export class Configuracion {
   readonly perfil;
   readonly pushDisponible;
+  readonly estadoSuscripcion;
+  readonly creandoCheckout;
+  readonly errorCheckout;
 
   seccionActiva = signal<SeccionConfig>('perfil');
 
@@ -52,13 +64,34 @@ export class Configuracion {
     private auth: AuthService,
     private perfilService: PerfilService,
     private push: PushService,
+    private suscripcionService: SuscripcionService,
     private translate: TranslateService
   ) {
     this.perfil = this.perfilService.perfil;
     this.pushDisponible = this.push.firebaseConfigurado();
+    this.estadoSuscripcion = this.suscripcionService.estado;
+    this.creandoCheckout = this.suscripcionService.creandoCheckout;
+    this.errorCheckout = this.suscripcionService.errorCheckout;
     this.nombre = this.perfil()?.nombre ?? '';
     this.email = this.perfil()?.email ?? '';
     this.perfilCv = this.perfil()?.perfil_cv ?? '';
+  }
+
+  /** El estado general ya lo carga Shell al arrancar la sesion -- esto solo cubre el caso de entrar directo a esta pestaña antes de que termine. */
+  cargarSuscripcionSiHaceFalta(): void {
+    if (!this.estadoSuscripcion()) this.suscripcionService.cargar().subscribe({ error: () => {} });
+  }
+
+  suscribirse(): void {
+    this.suscripcionService.crearCheckoutMercadoPago();
+  }
+
+  formatoFecha(iso: string): string {
+    return new Date(iso).toLocaleDateString(this.perfilService.localeDeIdioma(), { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  precioFormateado(precioClp: number): string {
+    return precioClp.toLocaleString('es-CL');
   }
 
   fotoPerfil(): string | null {

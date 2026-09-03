@@ -263,6 +263,15 @@
       "sesionGuardada": "Session saved.",
       "errorSesion": "Couldn't save the session."
     },
+    "suscripcion": {
+      "titulo": "Subscription",
+      "activa": "Your subscription is active until {{fecha}}. Applications unlocked.",
+      "postulacionesPaga": "Applications is Agenda Inteligente's paid feature — ${{precio}} CLP/month.",
+      "pruebaVigente": "The rest of the app (Calendar, Annie) is free during your trial, until {{fecha}}.",
+      "pruebaVencida": "Your trial ended on {{fecha}} — subscribe to keep using the app.",
+      "suscribirme": "Subscribe now",
+      "redirigiendo": "Redirecting to MercadoPago…"
+    },
     "idioma": {
       "titulo": "Language",
       "es": "Español",
@@ -273,5 +282,13 @@
       "claro": "Light",
       "oscuro": "Dark"
     }
+  },
+  "paywall": {
+    "titulo": "Applications is the paid feature",
+    "descripcion": "Subscribe to unlock application tracking, the mail inbox, and compatibility scoring. The rest of the app stays available during your free trial.",
+    "precio": "${{precio}} CLP/month",
+    "suscribirme": "Subscribe now",
+    "redirigiendo": "Redirecting to MercadoPago…",
+    "despues": "Not now"
   }
 }

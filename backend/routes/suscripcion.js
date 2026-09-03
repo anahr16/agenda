@@ -1,7 +1,7 @@
 const express = require('express');
 const { PreApproval } = require('mercadopago');
 const db = require('../db');
-const { estadoDe, PRECIO_CLP, TRIAL_DIAS } = require('../suscripcion');
+const { estadoDe, tienePagoActivo, PRECIO_CLP, TRIAL_DIAS } = require('../suscripcion');
 const { getClienteMercadoPago, avisoMercadoPagoNoConfigurado } = require('../mercadopagoApp');
 
 const router = express.Router();
@@ -11,6 +11,10 @@ router.get('/', (req, res) => {
   if (!estado) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json({
     permitido: !!estado.permitido,
+    // Distinto de "permitido": Postulaciones exige suscripcion paga de
+    // verdad, no alcanza con estar en la prueba gratis (ver
+    // requireSuscripcionPaga). El resto de la app usa "permitido".
+    postulaciones_permitido: !!tienePagoActivo(req.usuario.id).pagado,
     fecha_fin_prueba: estado.fecha_fin_prueba,
     suscripcion_vence: estado.suscripcion_vence,
     suscripcion_fuente: estado.suscripcion_fuente,

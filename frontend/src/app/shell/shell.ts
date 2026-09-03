@@ -9,6 +9,8 @@ import { AnnieMensaje, AnnieService } from '../core/annie.service';
 import { RecordatoriosVozService } from '../core/recordatorios-voz.service';
 import { PerfilService } from '../core/perfil.service';
 import { MailsRevisionService } from '../core/mails-revision.service';
+import { SuscripcionService } from '../core/suscripcion.service';
+import { Paywall } from '../shared/paywall/paywall';
 import { elegirFloresUnicas } from '../core/stickers';
 import { environment } from '../../environments/environment';
 
@@ -45,7 +47,7 @@ const INTERVALO_ACTUALIZACION_MS = 60000;
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, FormsModule, TranslatePipe],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, FormsModule, TranslatePipe, Paywall],
   templateUrl: './shell.html',
   styleUrl: './shell.css',
 })
@@ -98,6 +100,7 @@ export class Shell implements OnInit, OnDestroy {
     private recordatoriosVozService: RecordatoriosVozService,
     private perfilService: PerfilService,
     private mailsRevisionService: MailsRevisionService,
+    private suscripcionService: SuscripcionService,
     private translate: TranslateService
   ) {
     // Dispara la carga asincronica de voces del navegador lo antes posible
@@ -113,6 +116,10 @@ export class Shell implements OnInit, OnDestroy {
       next: () => this.saludar(),
       error: () => this.saludar(),
     });
+    // Se carga acá (no solo en la pestaña Suscripción de Configuración) para
+    // que el modal de paywall tenga el precio real apenas aparece, sin
+    // esperar un segundo pedido.
+    this.suscripcionService.cargar().subscribe({ error: () => {} });
     this.actualizarPostulaciones();
     this.revisarRecordatoriosVoz();
     this.intervaloActualizacion = setInterval(() => {
@@ -177,7 +184,10 @@ export class Shell implements OnInit, OnDestroy {
   }
 
   private actualizarPostulaciones(): void {
-    this.postulacionesService.listar().subscribe({
+    // silencioso: true -- esto corre en cualquier pantalla (no solo en
+    // Postulaciones), y Postulaciones es una funcion paga; sin esto el
+    // modal de paywall apareceria solo, sin que la usuaria haya tocado nada.
+    this.postulacionesService.listar({ silencioso: true }).subscribe({
       next: (lista) => {
         if (this.ultimaListaConocida) {
           this.detectarNovedades(this.ultimaListaConocida, lista);
@@ -510,6 +520,7 @@ export class Shell implements OnInit, OnDestroy {
     this.eventosService.reset();
     this.perfilService.reset();
     this.mailsRevisionService.reset();
+    this.suscripcionService.reset();
     this.auth.logout();
     this.router.navigateByUrl('/login');
   }

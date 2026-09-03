@@ -21,6 +21,13 @@
     <button type="button" [class.active]="seccionActiva() === 'computrabajo'" (click)="seccionActiva.set('computrabajo')">
       {{ 'configuracion.computrabajo.titulo' | translate }}
     </button>
+    <button
+      type="button"
+      [class.active]="seccionActiva() === 'suscripcion'"
+      (click)="seccionActiva.set('suscripcion'); cargarSuscripcionSiHaceFalta()"
+    >
+      {{ 'configuracion.suscripcion.titulo' | translate }}
+    </button>
     <button type="button" [class.active]="seccionActiva() === 'idioma'" (click)="seccionActiva.set('idioma')">
       {{ 'configuracion.idioma.titulo' | translate }}
     </button>
@@ -189,6 +196,41 @@
               <p class="mensaje">{{ mensajeCookiesComputrabajo() }}</p>
             }
           </form>
+        </section>
+      }
+
+      @case ('suscripcion') {
+        <section class="config-seccion">
+          <h2>{{ 'configuracion.suscripcion.titulo' | translate }}</h2>
+
+          @if (estadoSuscripcion(); as estado) {
+            @if (estado.postulaciones_permitido) {
+              <p class="config-desc">
+                {{ 'configuracion.suscripcion.activa' | translate: { fecha: formatoFecha(estado.suscripcion_vence!) } }}
+              </p>
+            } @else {
+              <p class="config-desc">
+                {{ 'configuracion.suscripcion.postulacionesPaga' | translate: { precio: precioFormateado(estado.precio_clp) } }}
+              </p>
+
+              @if (estado.permitido && estado.fecha_fin_prueba) {
+                <p class="config-desc">
+                  {{ 'configuracion.suscripcion.pruebaVigente' | translate: { fecha: formatoFecha(estado.fecha_fin_prueba) } }}
+                </p>
+              } @else if (estado.fecha_fin_prueba) {
+                <p class="mensaje">
+                  {{ 'configuracion.suscripcion.pruebaVencida' | translate: { fecha: formatoFecha(estado.fecha_fin_prueba) } }}
+                </p>
+              }
+
+              <button type="button" class="btn-add" [disabled]="creandoCheckout()" (click)="suscribirse()">
+                {{ (creandoCheckout() ? 'configuracion.suscripcion.redirigiendo' : 'configuracion.suscripcion.suscribirme') | translate }}
+              </button>
+              @if (errorCheckout()) {
+                <p class="mensaje">{{ errorCheckout() }}</p>
+              }
+            }
+          }
         </section>
       }
 

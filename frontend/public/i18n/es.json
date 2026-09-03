@@ -263,6 +263,15 @@
       "sesionGuardada": "Sesión guardada.",
       "errorSesion": "No se pudo guardar la sesión."
     },
+    "suscripcion": {
+      "titulo": "Suscripción",
+      "activa": "Tu suscripción está activa hasta el {{fecha}}. Postulaciones desbloqueado.",
+      "postulacionesPaga": "Postulaciones es la función paga de Agenda Inteligente — ${{precio}} CLP/mes.",
+      "pruebaVigente": "El resto de la app (Agenda, Annie) es gratis durante tu prueba, hasta el {{fecha}}.",
+      "pruebaVencida": "Tu prueba terminó el {{fecha}} — para seguir usando la app necesitás suscribirte.",
+      "suscribirme": "Suscribirme ahora",
+      "redirigiendo": "Redirigiendo a MercadoPago…"
+    },
     "idioma": {
       "titulo": "Idioma",
       "es": "Español",
@@ -273,5 +282,13 @@
       "claro": "Claro",
       "oscuro": "Oscuro"
     }
+  },
+  "paywall": {
+    "titulo": "Postulaciones es la función paga",
+    "descripcion": "Suscribite para desbloquear el seguimiento de postulaciones, la bandeja de mails y el cálculo de compatibilidad. El resto de la app sigue disponible durante tu prueba gratis.",
+    "precio": "${{precio}} CLP/mes",
+    "suscribirme": "Suscribirme ahora",
+    "redirigiendo": "Redirigiendo a MercadoPago…",
+    "despues": "Ahora no"
   }
 }

@@ -1,7 +1,8 @@
 import { Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { SILENCIAR_PAYWALL } from './paywall';
 
 export const ESTADOS_POSTULACION = ['enviada', 'vista', 'entrevista', 'rechazada', 'oferta'] as const;
 export type EstadoPostulacion = (typeof ESTADOS_POSTULACION)[number];
@@ -57,8 +58,15 @@ export class PostulacionesService {
     this.postulaciones.set([]);
   }
 
-  listar() {
-    return this.http.get<Postulacion[]>(this.base).pipe(tap((lista) => this.postulaciones.set(lista)));
+  /**
+   * `silencioso`: para el polling de fondo de Shell (corre en cualquier
+   * pantalla) -- Postulaciones es una funcion paga, y sin esto alguien sin
+   * suscripcion veria el modal de paywall aparecer solo con tener la app
+   * abierta, sin haber entrado a Postulaciones.
+   */
+  listar(opciones?: { silencioso?: boolean }) {
+    const context = opciones?.silencioso ? new HttpContext().set(SILENCIAR_PAYWALL, true) : undefined;
+    return this.http.get<Postulacion[]>(this.base, { context }).pipe(tap((lista) => this.postulaciones.set(lista)));
   }
 
   crear(datos: DatosPostulacion) {

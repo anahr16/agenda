@@ -1,0 +1,22 @@
+@if (suscripcion.mostrarPaywall()) {
+  <div class="paywall-backdrop" (click)="cerrar()">
+    <div class="paywall-card" (click)="$event.stopPropagation()">
+      <button type="button" class="paywall-cerrar" (click)="cerrar()" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <h2 class="paywall-titulo">{{ 'paywall.titulo' | translate }}</h2>
+      <p class="paywall-desc">{{ 'paywall.descripcion' | translate }}</p>
+      <p class="paywall-precio">{{ 'paywall.precio' | translate: { precio: precioFormateado() } }}</p>
+
+      @if (suscripcion.errorCheckout()) {
+        <p class="paywall-error">{{ suscripcion.errorCheckout() }}</p>
+      }
+
+      <button type="button" class="btn-primary" [disabled]="suscripcion.creandoCheckout()" (click)="suscribirse()">
+        {{ (suscripcion.creandoCheckout() ? 'paywall.redirigiendo' : 'paywall.suscribirme') | translate }}
+      </button>
+      <button type="button" class="paywall-despues" (click)="cerrar()">{{ 'paywall.despues' | translate }}</button>
+    </div>
+  </div>
+}

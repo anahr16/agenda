@@ -39,6 +39,12 @@ function textoDelMail(parsed) {
 // funcionaba antes de generalizar a per-cuenta (ver usuariosConCorreoConectado()
 // mas abajo). Se deja intacto a proposito, para no arriesgar el sync que ya
 // funciona en produccion.
+// connectionTimeout/greetingTimeout mas cortos que el default de ImapFlow
+// (90s/16s) -- una cuenta con problemas de red no deberia poder colgar el
+// resto de la sincronizacion (ver el comentario largo en sincronizarEmails()
+// sobre el colgado real que motivo esto, 2026-09-03).
+const TIMEOUTS_IMAP = { connectionTimeout: 20000, greetingTimeout: 10000, socketTimeout: 60000 };
+
 function configDueña() {
   const user = process.env.IMAP_USER;
   const pass = process.env.IMAP_APP_PASSWORD;
@@ -49,6 +55,7 @@ function configDueña() {
     secure: true,
     auth: { user, pass },
     logger: false,
+    ...TIMEOUTS_IMAP,
   };
 }
 
@@ -68,6 +75,7 @@ function configDe(usuario) {
     secure: true,
     auth: { user: usuario.imap_email, pass: desencriptar(usuario.imap_password_enc) },
     logger: false,
+    ...TIMEOUTS_IMAP,
   };
 }
 

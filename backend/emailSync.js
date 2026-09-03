@@ -286,6 +286,16 @@ let avisoSinDueñaMostrado = false;
 // logica entre ambos casos.
 async function sincronizarMailbox(cfg, usuarioId) {
   const client = new ImapFlow(cfg);
+  // Sin este listener, un error de socket que llega DESPUES de que connect()
+  // ya rechazo (ej. un timeout que termina de dispararse mas tarde) queda
+  // sin nadie escuchando el evento 'error' del EventEmitter -- Node lo trata
+  // como no manejado y tira abajo el proceso ENTERO, no solo esta cuenta
+  // (visto en vivo: crasheo el backend completo al fallar la conexion de una
+  // sola cuenta). Solo lo logueamos -- el try/catch de mas arriba
+  // (sincronizarEmails) ya se encarga de reportar el fallo real.
+  client.on('error', (err) => {
+    console.warn(`[email-sync] Error de socket IMAP para la cuenta ${usuarioId} (ya manejado):`, err.message);
+  });
   await client.connect();
   try {
     const lock = await client.getMailboxLock('INBOX');

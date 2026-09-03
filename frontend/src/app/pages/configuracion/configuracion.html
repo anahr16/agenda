@@ -152,7 +152,12 @@
         <section class="config-seccion">
           <h2>{{ 'configuracion.correo.titulo' | translate }}</h2>
           <p class="config-desc">{{ 'configuracion.correo.descripcion' | translate }}</p>
-          <p class="config-desc">{{ 'configuracion.correo.avisoContrasena' | translate }}</p>
+          <p class="config-desc">
+            {{ 'configuracion.correo.avisoContrasena' | translate }}
+            <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">{{ 'configuracion.correo.linkGmail' | translate }}</a>
+            ·
+            <a href="https://account.microsoft.com/security" target="_blank" rel="noopener">{{ 'configuracion.correo.linkOutlook' | translate }}</a>
+          </p>
 
           @if (perfil()?.imap_conectado) {
             <p class="config-desc">{{ 'configuracion.correo.conectadoComo' | translate: { email: perfil()?.imap_email } }}</p>

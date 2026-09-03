@@ -247,7 +247,9 @@
     "correo": {
       "titulo": "Email",
       "descripcion": "Connect your email so the app can detect your new applications (Computrabajo, LinkedIn, Chiletrabajos, Trabajando.cl) and their status changes automatically.",
-      "avisoContrasena": "Use an \"app password\", not your real account password -- Gmail and Outlook ask for one if you have two-step verification enabled (look for \"app passwords\" in your account's security settings).",
+      "avisoContrasena": "Use an \"app password\" -- not the password you normally use to sign in. It takes a couple of clicks to generate:",
+      "linkGmail": "Generate it on Gmail",
+      "linkOutlook": "Generate it on Outlook",
       "email": "Your email",
       "password": "App password",
       "host": "IMAP server (optional)",

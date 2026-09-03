@@ -247,7 +247,9 @@
     "correo": {
       "titulo": "Correo",
       "descripcion": "Conecta tu correo para que la app detecte solas tus postulaciones nuevas (Computrabajo, LinkedIn, Chiletrabajos, Trabajando.cl) y sus cambios de estado.",
-      "avisoContrasena": "Usa una \"contraseña de aplicación\", no la contraseña real de tu cuenta -- Gmail y Outlook la piden si tienes verificación en dos pasos activada (búscalo en la configuración de seguridad de tu cuenta como \"contraseñas de aplicaciones\").",
+      "avisoContrasena": "Usa una \"contraseña de aplicación\" -- no la contraseña con la que entras a tu correo normalmente. Se genera en un par de clics:",
+      "linkGmail": "Generarla en Gmail",
+      "linkOutlook": "Generarla en Outlook",
       "email": "Tu email",
       "password": "Contraseña de aplicación",
       "host": "Servidor IMAP (opcional)",

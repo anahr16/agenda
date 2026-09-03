@@ -2518,6 +2518,23 @@ restringidos de Google, que puede tardar semanas y no depende de nosotras).
   conexión IMAP y quedó registrado el error sin interrumpir nada más.
   **Falta probar con una casilla real de otra cuenta** para confirmar que
   detecta postulaciones de verdad, no solo que no rompe nada.
+- **Bug serio encontrado y arreglado en la prueba en vivo**: al fallar la
+  conexión IMAP de una cuenta real (contraseña inválida), unos segundos
+  después de que el error ya se había capturado bien, ImapFlow emitía un
+  segundo evento `'error'` tardío del socket -- sin nadie escuchándolo,
+  Node lo trata como no manejado y **tira abajo el proceso completo del
+  backend**, no solo esa cuenta. `systemd` lo reinicia solo, pero esto
+  significaba que un solo problema de red en una cuenta cualquiera podía
+  voltear el backend para todas las usuarias cada 10 minutos. Arreglado
+  con `client.on('error', ...)` en `sincronizarMailbox()`. También se
+  agregaron timeouts más cortos a la conexión IMAP (antes el default de
+  ImapFlow dejaba colgado un intento hasta 90s/5min sin límite propio).
+  Ambos arreglos ya verificados en vivo: se repitió la prueba con la misma
+  cuenta y el proceso ya no se cae, el error queda solo logueado.
+- **Pendiente para Ana**: la cuenta de prueba (`anahrnandz96@gmail.com`)
+  sigue dando "Command failed" al autenticar -- lo más probable es que se
+  haya cargado la contraseña real de Google en vez de una contraseña de
+  aplicación generada para esto.
 
 ## Suscripción paga (SaaS, en curso desde 2026-09-02)
 

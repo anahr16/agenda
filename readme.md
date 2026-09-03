@@ -2530,6 +2530,35 @@ Redeploy en cada fase siguiente: `git pull && npm ci && sudo systemctl
 restart agenda-backend` en la VM (backend); build + copia de `dist/` para
 el frontend (todavía no desplegado, ver fase 3 del plan).
 
+**Frontend desplegado (2026-09-03)**, antes de terminar la fase 3 completa
+(todavía falta el modal de pago) -- pedido explícito de la usuaria para
+que su familia pueda probar la app ya. `https://app.agendainteligente.dev`
+(subdominio nuevo, DNS agregado vía `gcloud dns record-sets create`; el
+dominio raíz sigue siendo el backend, sin tocar, para no romper el
+`back_url` de MercadoPago ni nada que ya apuntara ahí). Caddy sirve los
+archivos estáticos desde `/opt/agenda-frontend` en la VM (`root` +
+`try_files {path} /index.html` + `file_server`, bloque nuevo agregado al
+`Caddyfile` a mano, no versionado). `FRONTEND_URL` del backend ahora
+incluye ese origen para CORS. Redeploy del frontend de acá en más: `ng
+build` local, `gcloud compute scp --recurse dist/frontend/browser/*
+agenda-backend:/opt/agenda-frontend/`.
+
+`environment.prod.ts` + `fileReplacements` en `angular.json`
+(`configurations.production`) para que el build de producción apunte a
+`https://agendainteligente.dev` en vez de `localhost:4000` -- no existía
+ninguno de los dos antes de esto. De paso se subió el presupuesto
+`anyComponentStyle` (4kB/8kB estaba desactualizado, varios componentes ya
+lo superaban y nunca se había notado por no haber corrido un build de
+producción hasta ahora).
+
+**Verificado en vivo**: HTTPS con certificado real de Let's Encrypt
+emitido al toque (el DNS ya estaba propagado, a diferencia del primer
+intento de la fase 0), rutas de Angular con fallback a `index.html`
+(`/postulaciones` devuelve 200), y CORS del backend aceptando el origen
+nuevo (`OPTIONS /auth/login` con `Origin:
+https://app.agendainteligente.dev` responde `access-control-allow-origin`
+correcto).
+
 ### Fase 1 — Base de datos, prueba/suscripción, bloqueo (backend listo, sin desplegar ni commitear todavía)
 
 - **`backend/db.js`**: nuevas columnas en `usuarios` (mismo patrón

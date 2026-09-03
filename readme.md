@@ -760,15 +760,22 @@ Google.
   de por medio, sugiere que el bloqueo de la sesión del 01-09 nunca se
   levantó del todo, o que el fingerprint de Puppeteer headless (no el
   ritmo de pedidos) es lo que está gatillando el bloqueo -- espaciar más
-  los pedidos podría no alcanzar. **Pendiente, pausado de nuevo a
-  propósito**: el código está completo y lo que se pudo probar sin red
-  (parsing + matching) funciona bien, pero falta la confirmación en vivo.
-  Antes de reintentar: dejar pasar bastante más que unas horas (días,
-  no hay urgencia), y si vuelve a dar 403 revisar el HTML guardado en
-  `backend/.computrabajo-debug/` -- si el bloqueo persiste con pedidos
-  bien espaciados, el problema sería el fingerprint de Puppeteer, no el
-  ritmo, y ahí valdría la pena evaluar si tiene sentido seguir por este
-  camino en vez de seguir reintentando.
+  los pedidos podría no alcanzar.
+- **Prueba en vivo (2026-09-03): tercer 403 seguido**, otra vez en el
+  primer pedido del día, dos días después del anterior. Con el patrón
+  01-09 → 02-09 → 03-09 (siempre bloqueado, incluso espaciado por días) se
+  descarta que sea un bloqueo temporal por ritmo de pedidos -- el
+  fingerprint de Puppeteer headless es la explicación más probable.
+  **Pausado**: seguir reintentando tal cual no va a cambiar el resultado.
+- **`puppeteer-extra` + `puppeteer-extra-plugin-stealth`** (2026-09-03):
+  agregado en `computrabajoScraper.js` (reemplaza el `require('puppeteer')`
+  plano) para disimular las señales típicas de Chromium headless
+  (`navigator.webdriver`, etc). No se probó todavía en vivo a propósito --
+  reintentar de nuevo hoy mismo no sirve para diferenciar si el stealth
+  ayudó o si el bloqueo simplemente seguía activo. Probarlo recién dentro
+  de unos días, y si vuelve a dar 403 con esto puesto, ahí sí abandonar el
+  fetch automático y volver a pegar la descripción a mano para
+  Computrabajo.
 
 ### LinkedIn: descripción automática del aviso (2026-09-02)
 
@@ -2399,19 +2406,34 @@ instalado en el entorno:
 
 ### Todavía necesita a un humano antes de publicar
 
-Ninguno de estos pasos se resolvió en este trabajo — quedan explícitamente
-pendientes:
+- **El hosting real del backend: RESUELTO (2026-09-03)**, ver "Suscripción
+  paga" más abajo, Fase 0 — `https://agendainteligente.dev`. De paso se
+  actualizó lo que quedaba pendiente acá: `API_BASE_URL` del build
+  `release` en `android/app/build.gradle.kts` ahora apunta a ese dominio
+  (antes la IP de LAN de la PC de Ana), y `android:usesCleartextTraffic`
+  salió del manifest principal -- se movió a un overlay
+  `android/app/src/debug/AndroidManifest.xml` que solo aplica al build
+  `debug` (que sigue usando la IP de LAN para probar local). Verificado
+  de verdad, no solo "compila": se generaron `processReleaseMainManifest`/
+  `processDebugMainManifest` y `generateReleaseBuildConfig`, y se confirmó
+  en los archivos generados que release apunta al dominio real sin
+  cleartext y debug sigue con la IP de LAN y cleartext permitido.
 
-- **El hosting real del backend.** El bloqueo de verdad: mientras el
-  backend viva en la PC de Ana con IP de LAN, la app publicada no
-  funciona para nadie fuera de esa red (ni los revisores de Google, ni
-  ninguna cuenta pública real). Implica elegir un proveedor, HTTPS/dominio,
-  mover las variables de entorno (claves de Anthropic/ElevenLabs/IMAP/
-  Firebase), y decidir qué pasa con el archivo SQLite (backup, o migrar a
-  algo gestionado). Una vez resuelto, el cambio en Android es una sola
-  línea (`API_BASE_URL` en el `release` de `build.gradle.kts`, ver arriba)
-  y ahí sí tiene sentido sacar `android:usesCleartextTraffic="true"` del
-  manifest.
+- **Keystore de release: generado (2026-09-03)**. `android/agenda-release.jks`
+  (gitignored, agregado a `.gitignore` junto con `android/key.properties`
+  que faltaba cubrir), alias `agenda-inteligente`, RSA 2048, válido 30
+  años (hasta 2056-09-02). Contraseña única para store y key (keytool
+  moderno usa PKCS12, que no soporta contraseñas distintas para cada una
+  -- quedó documentado acá para no repetir el intento). Contraseña
+  entregada a la usuaria para guardar en su gestor de contraseñas, no
+  vive en ningún otro lado. **Verificado de verdad**: se corrió
+  `assembleRelease` completo (con R8/minify) y se confirmó con
+  `apksigner verify --print-certs` que el APK resultante está firmado
+  con este keystore (huella SHA-256 `6614...2bc3` coincide con la del
+  keystore) -- no alcanza con "compiló bien", firma de verdad.
+
+Quedan pendientes (ninguno se resolvió en este trabajo):
+
 - **Cuenta de desarrollador de Google Play** (pago único de USD 25).
 - **Requisito de testing cerrado para cuentas nuevas de Play Console**:
   actualmente Google pide ~12 testers que opten explícitamente y 14 días
@@ -2546,10 +2568,51 @@ el frontend (todavía no desplegado, ver fase 3 del plan).
   VM, y commitear -- quedó cortado ahí por necesidad de reiniciar la
   consola.
 
-### Siguiente (fases 2-5 del plan, sin arrancar)
+### Fase 2 — MercadoPago (backend escrito, bloqueado por la cuenta de MercadoPago)
 
-MercadoPago (checkout + webhook, backend), frontend web (modal de pago +
-pestaña de Configuración), Google Play Billing en Android (cliente +
-verificación server-side vía Google Play Developer API + notificaciones en
-tiempo real vía Pub/Sub). Detalle completo de cada una en el archivo de
-plan mencionado arriba.
+Código listo (`backend/mercadopagoApp.js`, `backend/routes/suscripcion.js` --
+`POST /mercadopago/checkout` --, `backend/routes/webhooks.js`), sin
+commitear todavía. El endpoint de checkout funciona -- crea el
+`PreApproval` y devuelve `init_point` -- pero **no se pudo completar un
+pago de prueba real**, ni con tarjetas/usuarios de prueba oficiales de
+MercadoPago ni con un monto chico real ($1.000 CLP):
+
+- Con comprador de prueba oficial (`Cuentas de prueba` del panel) +
+  cobrador real: la creación del `PreApproval` funciona, pero al cargar la
+  tarjeta de prueba en el checkout hospedado da "No puedes pagar con esta
+  tarjeta" apenas se escribe el número, antes de completar el resto del
+  formulario.
+- Con cualquier `payer_email` real (el de Ana, el interno de la app) +
+  cobrador real: `PreApproval.create` rechaza directo con `"Both payer and
+  collector must be real or test users"`.
+- Crear usuarios de prueba por API (`POST /users/test`) con el token de
+  producción: `"the caller.id must be a productive user"`.
+- Listar usuarios de prueba (`GET /users/test`): bloqueado por política de
+  MercadoPago (`PA_UNAUTHORIZED_RESULT_FROM_POLICIES`).
+- La cuenta vendedora real tiene `seller_experience: "NEWBIE"` (cuenta
+  nueva, sin historial de ventas) -- hipótesis más probable: MercadoPago
+  restringe Preapproval (suscripciones/débito recurrente) para cuentas
+  nuevas hasta algún paso de verificación adicional que no queda expuesto
+  por la API.
+- Dato aparte encontrado en el camino: la pestaña "Credenciales de prueba"
+  del panel (logueada como la cuenta real) no da un token de sandbox
+  aislado -- da el access token de **otra cuenta MercadoPago real y
+  personal** de Ana (`anaalegarciaher@gmail.com`), no una cuenta ficticia.
+
+**Pendiente**: Ana tiene que consultarlo directo con soporte de
+MercadoPago (tienen visibilidad de su cuenta que la API no expone) --
+pregunta concreta: si la cuenta vendedora necesita algún paso de
+verificación para poder usar Preapproval. Hasta que eso se resuelva, el
+código no se puede probar de punta a punta con un pago real.
+
+Se probó también con "Recibir pagos" activado (estaba apagado en el
+perfil de Negocio) -- no cambió el resultado, sigue el mismo error de
+tarjeta. Descarta esa hipótesis puntual, pero no cambia la recomendación
+de arriba.
+
+### Siguiente (fases 3-5 del plan, sin arrancar)
+
+Frontend web (modal de pago + pestaña de Configuración), Google Play
+Billing en Android (cliente + verificación server-side vía Google Play
+Developer API + notificaciones en tiempo real vía Pub/Sub). Detalle
+completo de cada una en el archivo de plan mencionado arriba.

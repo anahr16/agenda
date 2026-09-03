@@ -21,6 +21,7 @@ const webhooksRouter = require('./routes/webhooks');
 const requireAuth = require('./middleware/auth');
 const requireOwner = require('./middleware/requireOwner');
 const requireSuscripcionActiva = require('./middleware/requireSuscripcionActiva');
+const requireSuscripcionPaga = require('./middleware/requireSuscripcionPaga');
 const iniciarRecordatorios = require('./recordatorios');
 const iniciarSincronizacionEmails = require('./emailSync');
 const iniciarRecordatoriosPostulaciones = require('./recordatoriosPostulaciones');
@@ -61,8 +62,11 @@ app.use('/citas', requireAuth, requireOwner, citasRouter);
 app.use('/suscripcion', requireAuth, suscripcionRouter);
 // Sin requireAuth: MercadoPago no manda JWT, la firma se verifica adentro.
 app.use('/webhooks', webhooksRouter);
-app.use('/postulaciones', requireAuth, requireSuscripcionActiva, postulacionesRouter);
-app.use('/mails-revision', requireAuth, mailsRevisionRouter);
+// Postulaciones es el "plus" pago -- afuera de la prueba gratis a
+// proposito, no alcanza con estar en trial (ver requireSuscripcionPaga).
+// mails-revision es la bandeja de esa misma pagina, mismo gate.
+app.use('/postulaciones', requireAuth, requireSuscripcionPaga, postulacionesRouter);
+app.use('/mails-revision', requireAuth, requireSuscripcionPaga, mailsRevisionRouter);
 app.use('/eventos', requireAuth, requireSuscripcionActiva, eventosRouter);
 app.use('/annie', requireAuth, requireSuscripcionActiva, annieRouter);
 app.use('/recordatorios-voz', requireAuth, requireSuscripcionActiva, recordatoriosVozRouter);

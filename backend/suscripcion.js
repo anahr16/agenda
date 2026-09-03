@@ -23,10 +23,25 @@ function estadoDe(usuarioId) {
     .get(usuarioId);
 }
 
+// A diferencia de estadoDe() (permite trial O suscripcion paga), esto exige
+// suscripcion paga de verdad -- para Postulaciones, que la usuaria pidio
+// dejar afuera de la prueba gratis a proposito (el "plus" que justifica
+// pagar). es_owner sigue sin bloquearse nunca.
+function tienePagoActivo(usuarioId) {
+  return db
+    .prepare(
+      `SELECT (es_owner = 1
+          OR (suscripcion_vence IS NOT NULL AND datetime('now') < suscripcion_vence)
+        ) AS pagado
+      FROM usuarios WHERE id = ?`
+    )
+    .get(usuarioId);
+}
+
 function registrarEvento(usuarioId, fuente, tipo, referenciaExterna, payload) {
   db.prepare(
     'INSERT INTO suscripcion_eventos (usuario_id, fuente, tipo, referencia_externa, payload) VALUES (?, ?, ?, ?, ?)'
   ).run(usuarioId, fuente, tipo, referenciaExterna ?? null, payload ? JSON.stringify(payload) : null);
 }
 
-module.exports = { TRIAL_DIAS, PRECIO_CLP, estadoDe, registrarEvento };
+module.exports = { TRIAL_DIAS, PRECIO_CLP, estadoDe, tienePagoActivo, registrarEvento };

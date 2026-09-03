@@ -13,6 +13,7 @@ android/.cxx/
 # Firma de release (keystore fuera del repo) y config de Firebase real --
 # ver readme.md, seccion "Publicacion en Google Play".
 android/key.properties
+android/*.jks
 android/app/google-services.json
 
 # Assets de la ficha de Play Store (icono/feature graphic) -- placeholders

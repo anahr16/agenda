@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Política de privacidad — Agenda Inteligente</title>
+<style>
+  :root {
+    --accent-purple: #8b4fd6;
+    --accent-purple-deep: #6b32b0;
+    --accent-pink-deep: #d9668f;
+    --texto: #2b2233;
+    --fondo: #fbf9fd;
+    --borde: #e7ddf2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink-deep));
+    color: #fff;
+    padding: 2.5rem 1.5rem 2rem;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 0.4rem; font-size: 1.6rem; }
+  header p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+  section { margin-bottom: 2rem; }
+  h2 {
+    font-size: 1.15rem;
+    color: var(--accent-purple-deep);
+    border-bottom: 1px solid var(--borde);
+    padding-bottom: 0.4rem;
+  }
+  ul { padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  a { color: var(--accent-purple-deep); }
+  .nota {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    font-size: 0.92rem;
+  }
+  footer {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #77708a;
+    padding-bottom: 2rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Política de privacidad</h1>
+  <p>Agenda Inteligente — un producto de Anadesing · Última actualización: 3 de septiembre de 2026</p>
+</header>
+
+<main>
+
+<section>
+  <p>
+    Esta política explica qué información recolecta Agenda Inteligente, para qué se usa
+    y con quién se comparte. Agenda Inteligente es una aplicación (web y Android) para
+    organizar búsqueda laboral y agenda personal, operada de forma independiente por
+    Ana García bajo la marca Anadesing.
+  </p>
+</section>
+
+<section>
+  <h2>Qué información recolectamos</h2>
+  <ul>
+    <li><strong>Datos de cuenta:</strong> tu email y tu contraseña. La contraseña nunca se
+      guarda en texto plano — se almacena como un hash unidireccional, imposible de
+      revertir a la contraseña original.</li>
+    <li><strong>Perfil:</strong> nombre y foto de perfil, si decidís cargarlos.</li>
+    <li><strong>Contenido que cargás vos misma:</strong> tus postulaciones laborales
+      (empresa, puesto, descripción del aviso, link, fechas, notas), tus eventos de
+      agenda (título, fecha, notas) y un resumen de tu perfil/CV que usás para calcular
+      compatibilidad con ofertas.</li>
+    <li><strong>Conversaciones con Annie (asistente con IA):</strong> el texto que le
+      escribís o le pedís que lea en voz alta, para poder generar la respuesta y el
+      audio.</li>
+    <li><strong>Notificaciones push:</strong> un identificador de tu dispositivo
+      (token de Firebase Cloud Messaging), si activás las notificaciones.</li>
+    <li><strong>Datos de pago y suscripción:</strong> la fecha hasta la que tu cuenta
+      está activa, y según el medio de pago que uses: el identificador de tu suscripción
+      en MercadoPago (y el email asociado a ese pago) o el token de compra de Google
+      Play. Nunca vemos ni guardamos el número de tu tarjeta — eso lo procesa
+      directamente MercadoPago o Google.</li>
+    <li><strong>Integraciones opcionales que conectás vos misma:</strong> si conectás tu
+      cuenta de Computrabajo para traer automáticamente los avisos reales a los que
+      postulaste, guardamos la sesión de esa cuenta de forma cifrada, solo para ese fin.
+      Nunca te pedimos ni guardamos tu contraseña de Google/Gmail ni de ningún login
+      federado.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Para qué usamos esta información</h2>
+  <ul>
+    <li>Darte acceso a tu cuenta y mostrarte tus propios datos.</li>
+    <li>Calcular automáticamente tu compatibilidad con ofertas de trabajo.</li>
+    <li>Generar las respuestas y la voz de Annie.</li>
+    <li>Avisarte por notificación push de novedades en tus postulaciones o tu agenda.</li>
+    <li>Cobrar y mantener activa tu suscripción.</li>
+    <li>Diagnosticar errores y mejorar el funcionamiento del servicio.</li>
+  </ul>
+  <p>No usamos tu información para publicidad, ni la vendemos a terceros.</p>
+</section>
+
+<section>
+  <h2>Con quién se comparte</h2>
+  <p>Para que la app funcione, parte de tu información pasa por estos proveedores, que
+    la procesan en nuestro nombre bajo sus propias políticas de privacidad:</p>
+  <ul>
+    <li><strong>Anthropic</strong> — genera las respuestas de Annie a partir del texto
+      que le escribís.</li>
+    <li><strong>ElevenLabs</strong> — genera el audio de la voz de Annie a partir del
+      texto de sus respuestas.</li>
+    <li><strong>Google / Firebase</strong> — entrega las notificaciones push.</li>
+    <li><strong>MercadoPago</strong> — procesa los pagos de la suscripción web.</li>
+    <li><strong>Google Play</strong> — procesa los pagos de la suscripción en Android.</li>
+    <li><strong>Google Cloud</strong> — aloja el servidor donde vive la aplicación.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Seguridad</h2>
+  <ul>
+    <li>Todo el tráfico entre la app y el servidor viaja cifrado (HTTPS).</li>
+    <li>Las contraseñas de tu cuenta se guardan como hash, nunca en texto plano.</li>
+    <li>Las credenciales de integraciones de terceros (como la sesión de Computrabajo)
+      se guardan cifradas.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Cuánto tiempo se conserva y cómo pedir el borrado</h2>
+  <div class="nota">
+    <p style="margin-top:0">
+      Conservamos tu información mientras tu cuenta exista. Todavía no hay un botón
+      dentro de la app para borrar la cuenta vos misma — mientras se agrega, podés
+      pedir el borrado completo de tus datos escribiendo a
+      <a href="mailto:anaalegarciaher@gmail.com">anaalegarciaher@gmail.com</a>, y lo
+      procesamos a mano.
+    </p>
+    <p style="margin-bottom:0">
+      También podés escribir ahí para pedir acceso a tus datos, corregirlos, o
+      consultar cualquier duda sobre esta política.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>Menores de edad</h2>
+  <p>Agenda Inteligente no está dirigida a menores de 18 años.</p>
+</section>
+
+<section>
+  <h2>Cambios a esta política</h2>
+  <p>Si esta política cambia, actualizamos la fecha al principio de esta página.</p>
+</section>
+
+</main>
+
+<footer>Agenda Inteligente — un producto de Anadesing</footer>
+
+</body>
+</html>

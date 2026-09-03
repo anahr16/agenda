@@ -17,6 +17,7 @@ const eventosRouter = require('./routes/eventos');
 const annieRouter = require('./routes/annie');
 const recordatoriosVozRouter = require('./routes/recordatoriosVoz');
 const suscripcionRouter = require('./routes/suscripcion');
+const webhooksRouter = require('./routes/webhooks');
 const requireAuth = require('./middleware/auth');
 const requireOwner = require('./middleware/requireOwner');
 const requireSuscripcionActiva = require('./middleware/requireSuscripcionActiva');
@@ -41,6 +42,13 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Publica y sin auth a proposito -- URL exigida por Play Console y por ley,
+// tiene que poder abrirse sin loguearse. Ver seccion "Publicacion en Google
+// Play" de readme.md.
+app.get('/privacidad', (req, res) => {
+  res.sendFile(path.join(__dirname, 'legal', 'privacidad.html'));
+});
+
 app.use('/auth', authRouter);
 // clientes/citas son del turnero original, antes de Postulaciones/Agenda --
 // nunca se migraron a multi-tenancy real (no tienen usuario_id), asi que se
@@ -51,6 +59,8 @@ app.use('/citas', requireAuth, requireOwner, citasRouter);
 // /suscripcion sin requireSuscripcionActiva a proposito -- tiene que seguir
 // accesible mientras la cuenta esta bloqueada, para poder ver/pagar.
 app.use('/suscripcion', requireAuth, suscripcionRouter);
+// Sin requireAuth: MercadoPago no manda JWT, la firma se verifica adentro.
+app.use('/webhooks', webhooksRouter);
 app.use('/postulaciones', requireAuth, requireSuscripcionActiva, postulacionesRouter);
 app.use('/mails-revision', requireAuth, mailsRevisionRouter);
 app.use('/eventos', requireAuth, requireSuscripcionActiva, eventosRouter);

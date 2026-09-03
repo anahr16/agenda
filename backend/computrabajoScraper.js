@@ -9,7 +9,14 @@
 // automatizar el login -- la cuenta de Computrabajo de Ana es federada
 // (Google), y automatizar un login de Google es mucho mas sensible/riesgoso
 // que reusar una sesion que ella ya generó a mano.
-const puppeteer = require('puppeteer');
+// puppeteer-extra + plugin stealth (no el puppeteer plano) -- Computrabajo
+// bloqueo con 403 tres dias seguidos (01/02/03-09), incluso en el primer
+// pedido del dia y bien espaciado, lo que apunta al fingerprint de
+// Chromium headless (navigator.webdriver, etc) y no al ritmo de pedidos.
+// Ver readme.md, seccion Computrabajo.
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');

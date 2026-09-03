@@ -2531,10 +2531,18 @@ restringidos de Google, que puede tardar semanas y no depende de nosotras).
   ImapFlow dejaba colgado un intento hasta 90s/5min sin límite propio).
   Ambos arreglos ya verificados en vivo: se repitió la prueba con la misma
   cuenta y el proceso ya no se cae, el error queda solo logueado.
-- **Pendiente para Ana**: la cuenta de prueba (`anahrnandz96@gmail.com`)
-  sigue dando "Command failed" al autenticar -- lo más probable es que se
-  haya cargado la contraseña real de Google en vez de una contraseña de
-  aplicación generada para esto.
+- **Confirmado con contraseña de aplicación real**: la cuenta de prueba
+  conectó bien y se corrió la sincronización completa contra un mailbox
+  real. Los 157 mails de los últimos 3 días eran todos boletines/alertas
+  de LinkedIn y Computrabajo (no confirmaciones reales de postulación) --
+  el sistema los clasificó bien como "no es una postulación nueva", cero
+  falsos positivos.
+- **Bug encontrado en esa misma prueba y arreglado**: con muchos avisos de
+  Telegram juntos (uno por mail no reconocido), Telegram devolvía 429
+  (demasiados pedidos) y se perdían casi todos. `telegram.js` ahora encola
+  los envíos espaciados ~1.2s entre cada uno, en el único lugar (no hay
+  que tocar los lugares que lo llaman). Probado en vivo: 4 avisos
+  disparados juntos ahora llegan todos.
 
 ## Suscripción paga (SaaS, en curso desde 2026-09-02)
 
